@@ -47,14 +47,14 @@ open class ReactiveBleClient(private val context: Context) : BleClient {
 
         lateinit var rxBleClient: RxBleClient
             internal set
-        internal var activeConnections = mutableMapOf<String, DeviceConnector>()
+        internal var activeConnections: MutableMap<String, DeviceConnector> = ConcurrentHashMap()
     }
 
     override val connectionUpdateSubject: BehaviorSubject<ConnectionUpdate>
         get() = connectionUpdateBehaviorSubject
 
     override fun initializeClient() {
-        activeConnections = mutableMapOf()
+        activeConnections = ConcurrentHashMap()
         rxBleClient = RxBleClient.create(context)
     }
 
