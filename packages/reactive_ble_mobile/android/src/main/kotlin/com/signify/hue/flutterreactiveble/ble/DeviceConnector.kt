@@ -33,6 +33,8 @@ internal class DeviceConnector(
     @VisibleForTesting
     internal var connectionDisposable: Disposable? = null
 
+    internal var disconnectionDisposable: Disposable? = null
+
     private val lazyConnection =
         lazy {
             connectionDisposable = establishConnection(device)
@@ -68,7 +70,8 @@ internal class DeviceConnector(
         disconnect to quickly after establishing connection. https://issuetracker.google.com/issues/37121223
          */
         if (diff < DeviceConnector.Companion.minTimeMsBeforeDisconnectingIsAllowed) {
-            Single.timer(DeviceConnector.Companion.minTimeMsBeforeDisconnectingIsAllowed - diff, TimeUnit.MILLISECONDS)
+            disconnectionDisposable?.dispose()
+            disconnectionDisposable = Single.timer(DeviceConnector.Companion.minTimeMsBeforeDisconnectingIsAllowed - diff, TimeUnit.MILLISECONDS)
                 .doFinally {
                     sendDisconnectedUpdate(deviceId)
                     disposeSubscriptions()
@@ -84,6 +87,7 @@ internal class DeviceConnector(
     }
 
     private fun disposeSubscriptions() {
+        disconnectionDisposable?.dispose()
         connectionDisposable?.dispose()
         connectDeviceSubject.onComplete()
         connectionStatusUpdates.dispose()
