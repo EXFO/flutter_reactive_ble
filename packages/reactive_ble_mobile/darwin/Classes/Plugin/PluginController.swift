@@ -300,8 +300,8 @@ final class PluginController {
                     DiscoveredCharacteristic.with {
                         $0.characteristicID = Uuid.with {$0.data = characteristic.uuid.data}
                         $0.characteristicInstanceID = characteristic.instanceId?.description ?? ""
-                        if characteristic.service?.uuid.data != nil {
-                            $0.serviceID = Uuid.with {$0.data = characteristic.service!.uuid.data}
+                        if let serviceUuidData = characteristic.service?.uuid.data {
+                            $0.serviceID = Uuid.with {$0.data = serviceUuidData}
                         }
                         $0.isReadable = characteristic.properties.contains(.read)
                         $0.isWritableWithResponse = characteristic.properties.contains(.write)
@@ -355,8 +355,8 @@ final class PluginController {
                     DiscoveredCharacteristic.with {
                         $0.characteristicID = Uuid.with {$0.data = characteristic.uuid.data}
                         $0.characteristicInstanceID = characteristic.instanceId?.description ?? ""
-                        if characteristic.service?.uuid.data != nil {
-                            $0.serviceID = Uuid.with {$0.data = characteristic.service!.uuid.data}
+                        if let serviceUuidData = characteristic.service?.uuid.data {
+                            $0.serviceID = Uuid.with {$0.data = serviceUuidData}
                         }
                         $0.isReadable = characteristic.properties.contains(.read)
                         $0.isWritableWithResponse = characteristic.properties.contains(.write)
