@@ -21,7 +21,7 @@ class FlutterReactiveBle {
 
   ///Create a new instance where injected dependencies are used.
   @visibleForTesting
-  FlutterReactiveBle.witDependencies({
+  FlutterReactiveBle.withDependencies({
     required DeviceScanner deviceScanner,
     required DeviceConnector deviceConnector,
     required ConnectedDeviceOperation connectedDeviceOperation,

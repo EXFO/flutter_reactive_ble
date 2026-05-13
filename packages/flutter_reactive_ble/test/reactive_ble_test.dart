@@ -51,7 +51,7 @@ void main() {
       when(_blePlatform.bleStatusStream)
           .thenAnswer((realInvocation) => _bleStatusController.stream.asBroadcastStream());
 
-      _sut = FlutterReactiveBle.witDependencies(
+      _sut = FlutterReactiveBle.withDependencies(
         reactiveBlePlatform: _blePlatform,
         deviceScanner: _deviceScanner,
         deviceConnector: _deviceConnector,
