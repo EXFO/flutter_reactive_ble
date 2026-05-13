@@ -23,6 +23,8 @@ final class Central {
 
     private let onServicesWithCharacteristicsInitialDiscovery: ServicesWithCharacteristicsDiscoveryHandler
 
+    private let queue = DispatchQueue(label: "com.signifiy.hue.flutterreactiveble.central", qos: .default)
+
     private var peripheralDelegate: PeripheralDelegate!
     private var centralManagerDelegate: CentralManagerDelegate!
     private var centralManager: CBCentralManager!
@@ -124,7 +126,7 @@ final class Central {
         )
         self.centralManager = CBCentralManager(
             delegate: centralManagerDelegate,
-            queue: nil
+            queue: queue
         )
     }
 
