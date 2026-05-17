@@ -7,6 +7,14 @@ Flutter library that handles BLE operations for multiple devices.
 ## Contributing
 Feel free to open an new issue or a pull request to make this project better
 
+A few pull requests not merged into the original repository have been integrated.
+
+- PR #902 — iOS: Bluetooth disabled during active connection
+- PR #910 — Android: ConnectionQueue stuck indefinitely
+- PR #928 — Handle already-connected BLE devices gracefully
+
+Special thanks to the contributors.
+
 ## Setup
 
 This project uses melos to manage all the packages inside this repo.
