@@ -368,7 +368,7 @@ class PluginController {
             }, {
                     throwable ->
                 val (code, message) = mapDiscoverServicesError(throwable, request.deviceId)
-                result.error(code, message, throwable.stackTrace.toList().toString())t().toString())
+                result.error(code, message, throwable.stackTrace.toList().toString())
             })
             .discard()
     }
