@@ -1,3 +1,7 @@
+## 5.4.2+1
+
+* Bump version for 5.4.2+1 release (implementation fixes in `reactive_ble_mobile` and `flutter_reactive_ble`)
+
 ## 5.4.2
 
 * Update to Gradle distribution 8.4 #904

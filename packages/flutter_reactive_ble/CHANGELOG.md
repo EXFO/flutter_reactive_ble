@@ -1,3 +1,20 @@
+## 5.4.2+1
+
+* Fix memory leak in `ReactiveBle` device connection state subscription
+* Update Android example and library build configuration
+* Fix memory leak in Android `DeviceConnector`
+* Improve BLE connection error mapping on Android
+* Replace deprecated Swift APIs (Swift 5.2+)
+* Safer optional handling on iOS (`PluginController`, `Central`)
+* Use operation queue instead of optional queue on iOS `Central`
+* Fix bad state errors during connect on iOS
+* Prevent index out of range when writing characteristics on iOS
+* Use `ConcurrentHashMap` for thread-safe state on Android
+* Handle already-connected devices when discovering services on Android
+* Fix Android `ConnectionQueue` getting stuck
+* Improve BLE state restoration when app returns from background on iOS
+* Fix Kotlin compile error in discover-services error handler (`PluginController`)
+
 ## 5.4.2
 
 * Update to Gradle distribution 8.4 #904
