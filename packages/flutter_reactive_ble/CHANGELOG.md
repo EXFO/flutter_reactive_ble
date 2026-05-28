@@ -1,3 +1,7 @@
+## 5.5.0
+
+* Added Swift Package Manager support #921
+
 ## 5.4.2+1
 
 * Fix memory leak in `ReactiveBle` device connection state subscription
