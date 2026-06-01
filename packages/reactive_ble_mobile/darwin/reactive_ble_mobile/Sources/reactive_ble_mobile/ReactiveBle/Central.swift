@@ -74,11 +74,6 @@ final class Central {
             },
             onRestoreState: papply(weak: self) { central, peripherals in
                 central.handleRestoredPeripherals(peripherals)
-                peripherals.forEach { peripheral in
-                    if peripheral.state == .connected {
-                        onConnectionChange(central, peripheral, .connected)
-                    }
-                }
             }
         )
         self.peripheralDelegate = PeripheralDelegate(
@@ -167,6 +162,25 @@ final class Central {
         peripheral.delegate = peripheralDelegate
         activePeripherals[peripheral.identifier] = peripheral
 
+        registerConnectTask(
+            peripheral: peripheral,
+            discover: servicesWithCharacteristicsToDiscover,
+            timeout: timeout
+        )
+
+        connectRegistry.updateTask(
+            key: peripheralID,
+            action: { $0.connect(centralManager: centralManager, peripheral: peripheral) }
+        )
+    }
+
+    private func registerConnectTask(
+        peripheral: CBPeripheral,
+        discover servicesWithCharacteristicsToDiscover: ServicesWithCharacteristicsToDiscover,
+        timeout: TimeInterval?
+    ) {
+        let peripheralID = peripheral.identifier
+
         connectRegistry.registerTask(
             key: peripheralID,
             params: .init(),
@@ -190,11 +204,6 @@ final class Central {
                     break
                 }
             }
-        )
-
-        connectRegistry.updateTask(
-            key: peripheralID,
-            action: { $0.connect(centralManager: centralManager, peripheral: peripheral) }
         )
     }
 
@@ -373,6 +382,23 @@ final class Central {
         peripherals.forEach { peripheral in
             peripheral.delegate = peripheralDelegate
             activePeripherals[peripheral.identifier] = peripheral
+
+            switch peripheral.state {
+            case .connected:
+                discoverServicesWithCharacteristics(
+                    for: peripheral,
+                    discover: .all,
+                    completion: onServicesWithCharacteristicsInitialDiscovery
+                )
+            case .connecting:
+                registerConnectTask(peripheral: peripheral, discover: .all, timeout: nil)
+                connectRegistry.updateTask(
+                    key: peripheral.identifier,
+                    action: { $0.connect(centralManager: self.centralManager, peripheral: peripheral) }
+                )
+            default:
+                break
+            }
         }
     }
 
