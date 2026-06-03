@@ -283,9 +283,22 @@ open class ReactiveBleClient(private val context: Context) : BleClient {
         timeout: Duration = Duration(0, TimeUnit.MILLISECONDS),
     ): Observable<EstablishConnectionResult> {
         val device = rxBleClient.getBleDevice(deviceId)
-        val connector =
-            activeConnections.getOrPut(deviceId) { createDeviceConnector(device, timeout) }
+        activeConnections[deviceId]?.let { existing ->
+            return existing.connection
+        }
 
+        if (device.connectionState == RxBleConnection.RxBleConnectionState.CONNECTED) {
+            return Observable.just(
+                EstablishConnectionFailure(
+                    deviceId,
+                    "Device $deviceId is already connected at the OS level but is no longer " +
+                            "tracked by the plugin. Call disconnectDevice (or restart Bluetooth) " +
+                            "before retrying.",
+                ),
+            )
+        }
+
+        val connector = activeConnections.getOrPut(deviceId) { createDeviceConnector(device, timeout) }
         return connector.connection
     }
 
