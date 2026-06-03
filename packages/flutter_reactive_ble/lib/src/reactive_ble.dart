@@ -12,6 +12,8 @@ import 'package:meta/meta.dart';
 import 'package:reactive_ble_mobile/reactive_ble_mobile.dart';
 import 'package:reactive_ble_platform_interface/reactive_ble_platform_interface.dart';
 
+import 'ble_connection_type.dart';
+
 /// [FlutterReactiveBle] is the facade of the library. Its interface allows to
 /// perform all the supported BLE operations.
 class FlutterReactiveBle {
@@ -306,6 +308,41 @@ class FlutterReactiveBle {
               connectionTimeout: connectionTimeout,
             ),
           );
+
+  /// Connects to the device by routing to [connectToDevice] or [connectToAdvertisingDevice] smartly.
+  ///
+  /// [type] selects the route; when it is [BleConnectionType.auto], [isBackground]
+  /// picks direct connect while backgrounded, otherwise prescan-then-connect. See [BleConnectionType.auto].
+  ///
+  /// [withServices] and [prescanDuration] apply only to the advertising-device path and
+  /// default to an empty filter and five seconds when not overridden.
+  Stream<ConnectionStateUpdate> connectSmartToDevice({
+    required String id,
+    BleConnectionType type = BleConnectionType.auto,
+    bool isBackground = false,
+    List<Uuid> withServices = const [],
+    Duration prescanDuration = const Duration(seconds: 5),
+    Map<Uuid, List<Uuid>>? servicesWithCharacteristicsToDiscover,
+    Duration? connectionTimeout,
+  }) {
+    final connectionType = type.resolve(isBackground: isBackground);
+
+    if (connectionType == BleConnectionType.connectToDevice) {
+      return connectToDevice(
+        id: id,
+        servicesWithCharacteristicsToDiscover: servicesWithCharacteristicsToDiscover,
+        connectionTimeout: connectionTimeout,
+      );
+    }
+
+    return connectToAdvertisingDevice(
+      id: id,
+      withServices: withServices,
+      prescanDuration: prescanDuration,
+      servicesWithCharacteristicsToDiscover: servicesWithCharacteristicsToDiscover,
+      connectionTimeout: connectionTimeout,
+    );
+  }
 
   /// Performs service discovery on the peripheral and returns the discovered services.
   ///

@@ -136,6 +136,30 @@ flutterReactiveBle.connectToAdvertisingDevice(
 
 Besides the normal connection parameters that are described above this function also has 2 additional required parameters: `withServices` and  `prescanDuration`. PreScanDuration is the amount of time the ble stack will scan for the device before it attempts to connect (if the device is found)
 
+You can also use `connectSmartToDevice` to centralize the strategy decision:
+
+```dart
+flutterReactiveBle.connectSmartToDevice(
+  id: foundDeviceId,
+  strategy: BleConnectionStrategy.auto,
+  isBackground: true,
+  withServices: [serviceUuid],
+  prescanDuration: const Duration(seconds: 5),
+  servicesWithCharacteristicsToDiscover: {serviceId: [char1, char2]},
+  connectionTimeout: const Duration(seconds: 2),
+).listen((connectionState) {
+  // Handle connection state updates
+}, onError: (Object error) {
+  // Handle a possible error
+});
+```
+
+`connectSmartToDevice` mapping:
+- `auto` + `isBackground == true` -> `connectToDevice`
+- `auto` + `isBackground == false` -> `connectToAdvertisingDevice`
+- `direct` -> `connectToDevice`
+- `prescanThenConnect` -> `connectToAdvertisingDevice`
+
 ### Read / write characteristics
 
 #### Read characteristic

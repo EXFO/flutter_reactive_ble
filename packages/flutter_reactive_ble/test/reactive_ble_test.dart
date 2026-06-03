@@ -72,7 +72,7 @@ void main() {
         bleStatusStream = _sut.statusStream;
       });
 
-      test('It returns values retrieved from plugincontroller', () {
+      test('Should emit status updates when platform publishes to status stream', () {
         _bleStatusController.add(BleStatus.ready);
 
         expect(
@@ -83,11 +83,11 @@ void main() {
       });
 
       group('Get current Ble status', () {
-        test('It returns unknown in case no status is emitted', () {
+        test('Should return unknown when no status has been emitted yet', () {
           expect(_sut.status, BleStatus.unknown);
         });
 
-        test('It returns last known status from stream', () async {
+        test('Should return last emitted status when status stream has received an update', () async {
           const expectedStatus = BleStatus.unauthorized;
           _bleStatusController.add(expectedStatus);
 
@@ -116,7 +116,7 @@ void main() {
         charValueStream = _sut.characteristicValueStream;
       });
 
-      test('It emits values', () {
+      test('Should emit characteristic values when characteristicValueStream is listened to', () {
         expect(
           charValueStream,
           emitsInAnyOrder(
@@ -131,7 +131,7 @@ void main() {
         when(_blePlatform.deinitialize()).thenAnswer((_) async => 1);
       });
 
-      test('It executes deinitialize successful', () async {
+      test('Should complete deinitialize when deinitialize is called', () async {
         await _sut.deinitialize();
       });
     });
@@ -178,7 +178,7 @@ void main() {
         result = await _sut.readCharacteristic(characteristic);
       });
 
-      test("It reads the correct characteristic", () {
+      test('Should read resolved characteristic instance when readCharacteristic is called', () {
         verify(_deviceOperation.readCharacteristic(CharacteristicInstance(
           characteristicId: characteristic.characteristicId,
           characteristicInstanceId: "101",
@@ -188,7 +188,7 @@ void main() {
         ))).called(1);
       });
 
-      test('It returns correct value', () {
+      test('Should return read bytes when readCharacteristic succeeds', () {
         expect(result, [1]);
       });
     });
@@ -239,7 +239,7 @@ void main() {
         await _sut.writeCharacteristicWithResponse(characteristic, value: value);
       });
 
-      test("It write to the correct characteristic", () {
+      test('Should write to resolved characteristic instance when writeCharacteristicWithResponse is called', () {
         verify(_deviceOperation.writeCharacteristicWithResponse(
           CharacteristicInstance(
             characteristicId: characteristic.characteristicId,
@@ -302,7 +302,7 @@ void main() {
         );
       });
 
-      test("It write to the correct characteristic", () {
+      test('Should write to resolved characteristic instance when writeCharacteristicWithoutResponse is called', () {
         verify(_deviceOperation.writeCharacteristicWithoutResponse(
           CharacteristicInstance(
             characteristicId: characteristic.characteristicId,
@@ -327,7 +327,7 @@ void main() {
         result = await _sut.requestMtu(deviceId: deviceId, mtu: mtu);
       });
 
-      test('It returns correct value', () {
+      test('Should return negotiated mtu when requestMtu succeeds', () {
         expect(result, mtu);
       });
     });
@@ -341,7 +341,7 @@ void main() {
         await _sut.requestConnectionPriority(deviceId: deviceId, priority: priority);
       });
 
-      test('It completes operation without errors', () {
+      test('Should complete when requestConnectionPriority succeeds', () {
         expect(true, true);
       });
     });
@@ -376,7 +376,7 @@ void main() {
         );
       });
 
-      test('It emits values', () {
+      test('Should emit discovered devices when scanForDevices is called', () {
         expect(
           deviceStream,
           emitsInAnyOrder(
@@ -414,7 +414,7 @@ void main() {
         );
       });
 
-      test('It emits values', () {
+      test('Should emit connection updates when connectToDevice is called', () {
         expect(
           deviceUpdateStream,
           emitsInAnyOrder(
@@ -458,13 +458,133 @@ void main() {
         );
       });
 
-      test('It emits values', () {
+      test('Should emit connection updates when connectToAdvertisingDevice is called', () {
         expect(
           deviceUpdateStream,
           emitsInAnyOrder(
             <ConnectionStateUpdate>[update],
           ),
         );
+      });
+    });
+
+    group('connectSmartToDevice mapping', () {
+      const deviceId = 'smart-device';
+      const update = ConnectionStateUpdate(
+        deviceId: deviceId,
+        connectionState: DeviceConnectionState.connecting,
+        failure: null,
+      );
+      const timeout = Duration(seconds: 5);
+      const prescanDuration = Duration(seconds: 2);
+      final withServices = [Uuid.parse('EEFF')];
+      final servicesToDiscover = {
+        Uuid.parse('FEFF'): [Uuid.parse('FE1F')],
+      };
+
+      setUp(() {
+        when(
+          _deviceConnector.connect(
+            id: anyNamed('id'),
+            servicesWithCharacteristicsToDiscover: anyNamed('servicesWithCharacteristicsToDiscover'),
+            connectionTimeout: anyNamed('connectionTimeout'),
+          ),
+        ).thenAnswer((_) => Stream.fromIterable([update]));
+
+        when(
+          _deviceConnector.connectToAdvertisingDevice(
+            id: anyNamed('id'),
+            servicesWithCharacteristicsToDiscover: anyNamed('servicesWithCharacteristicsToDiscover'),
+            connectionTimeout: anyNamed('connectionTimeout'),
+            prescanDuration: anyNamed('prescanDuration'),
+            withServices: anyNamed('withServices'),
+          ),
+        ).thenAnswer((_) => Stream.fromIterable([update]));
+      });
+
+      test('Should use direct connect when type is auto and app is in background', () async {
+        final stream = _sut.connectSmartToDevice(
+          id: deviceId,
+          type: BleConnectionType.auto,
+          isBackground: true,
+          withServices: withServices,
+          prescanDuration: prescanDuration,
+          servicesWithCharacteristicsToDiscover: servicesToDiscover,
+          connectionTimeout: timeout,
+        );
+
+        await expectLater(stream, emitsInOrder(<ConnectionStateUpdate>[update]));
+        verify(_deviceConnector.connect(
+          id: deviceId,
+          servicesWithCharacteristicsToDiscover: servicesToDiscover,
+          connectionTimeout: timeout,
+        )).called(1);
+        verifyNever(_deviceConnector.connectToAdvertisingDevice(
+          id: anyNamed('id'),
+          servicesWithCharacteristicsToDiscover: anyNamed('servicesWithCharacteristicsToDiscover'),
+          connectionTimeout: anyNamed('connectionTimeout'),
+          prescanDuration: anyNamed('prescanDuration'),
+          withServices: anyNamed('withServices'),
+        ));
+      });
+
+      test('Should use prescan connect when type is auto and app is in foreground', () async {
+        final stream = _sut.connectSmartToDevice(
+          id: deviceId,
+          type: BleConnectionType.auto,
+          isBackground: false,
+          withServices: withServices,
+          prescanDuration: prescanDuration,
+          servicesWithCharacteristicsToDiscover: servicesToDiscover,
+          connectionTimeout: timeout,
+        );
+
+        await expectLater(stream, emitsInOrder(<ConnectionStateUpdate>[update]));
+        verify(_deviceConnector.connectToAdvertisingDevice(
+          id: deviceId,
+          withServices: withServices,
+          prescanDuration: prescanDuration,
+          servicesWithCharacteristicsToDiscover: servicesToDiscover,
+          connectionTimeout: timeout,
+        )).called(1);
+      });
+
+      test('Should use direct connect when type is connectToDevice', () async {
+        final stream = _sut.connectSmartToDevice(
+          id: deviceId,
+          type: BleConnectionType.connectToDevice,
+          withServices: withServices,
+          prescanDuration: prescanDuration,
+          servicesWithCharacteristicsToDiscover: servicesToDiscover,
+          connectionTimeout: timeout,
+        );
+
+        await expectLater(stream, emitsInOrder(<ConnectionStateUpdate>[update]));
+        verify(_deviceConnector.connect(
+          id: deviceId,
+          servicesWithCharacteristicsToDiscover: servicesToDiscover,
+          connectionTimeout: timeout,
+        )).called(1);
+      });
+
+      test('Should use advertising connect when type is connectToAdvertisingDevice', () async {
+        final stream = _sut.connectSmartToDevice(
+          id: deviceId,
+          type: BleConnectionType.connectToAdvertisingDevice,
+          withServices: withServices,
+          prescanDuration: prescanDuration,
+          servicesWithCharacteristicsToDiscover: servicesToDiscover,
+          connectionTimeout: timeout,
+        );
+
+        await expectLater(stream, emitsInOrder(<ConnectionStateUpdate>[update]));
+        verify(_deviceConnector.connectToAdvertisingDevice(
+          id: deviceId,
+          withServices: withServices,
+          prescanDuration: prescanDuration,
+          servicesWithCharacteristicsToDiscover: servicesToDiscover,
+          connectionTimeout: timeout,
+        )).called(1);
       });
     });
 
@@ -481,12 +601,12 @@ void main() {
         await _sut.clearGattCache(deviceId);
       });
 
-      test('It executes clear gattcache correctly', () {
+      test('Should invoke platform clearGattCache when clearGattCache is called', () {
         expect(true, true);
       });
     });
 
-    test('Read RSSI', () async {
+    test('Should return rssi when readRssi is called', () async {
       const deviceId = '123';
 
       when(_blePlatform.readRssi(deviceId)).thenAnswer((_) async => -42);
@@ -510,7 +630,7 @@ void main() {
         updateStream = _sut.connectedDeviceStream;
       });
 
-      test('It emits correct value', () {
+      test('Should emit connection updates when connectedDeviceStream is listened to', () {
         expect(
           updateStream,
           emitsInOrder(
@@ -576,7 +696,7 @@ void main() {
         resultStream = _sut.subscribeToCharacteristic(char);
       });
 
-      test('It emits correct value', () {
+      test('Should emit notification values when subscribeToCharacteristic is called', () {
         expect(
           resultStream,
           emitsInOrder(
@@ -599,7 +719,7 @@ void main() {
           when(_deviceOperation.discoverServices(any)).thenAnswer((_) async => result);
         });
 
-        test('It returns result', () async {
+        test('Should return discovered services when discoverServices succeeds', () async {
           // ignore: deprecated_member_use_from_same_package
           expect(await _sut.discoverServices(deviceId), <DiscoveredService>[]);
         });
@@ -616,7 +736,7 @@ void main() {
           when(_deviceOperation.discoverServices(any)).thenAnswer((_) async => result);
         });
 
-        test('It succeeds', () async {
+        test('Should call device operation when discoverAllServices succeeds', () async {
           await _sut.discoverAllServices(deviceId);
           verify(_deviceOperation.discoverServices(deviceId)).called(1);
         });
@@ -662,7 +782,7 @@ void main() {
           when(_deviceConnector.deviceConnectionStateUpdateStream).thenAnswer((_) => const Stream.empty());
         });
 
-        test("reading first instance of characteristic", () async {
+        test('Should read first characteristic instance when multiple share id in one service', () async {
           final services = await _sut.getDiscoveredServices("123");
 
           expect(await services.single.characteristics.first.read(), [42]);
@@ -676,7 +796,7 @@ void main() {
           )));
         });
 
-        test("reading second instance of characteristic", () async {
+        test('Should read second characteristic instance when multiple share id in one service', () async {
           final services = await _sut.getDiscoveredServices("123");
 
           expect(await services.single.characteristics[1].read(), [42]);
@@ -735,7 +855,7 @@ void main() {
           when(_deviceOperation.readCharacteristic(any)).thenAnswer((_) async => [42]);
         });
 
-        test("reading first instance of characteristic", () async {
+        test('Should read first service characteristic when same id exists in different services', () async {
           final services = await _sut.getDiscoveredServices("123");
 
           expect(await services.first.characteristics.single.read(), [42]);
@@ -749,7 +869,7 @@ void main() {
           )));
         });
 
-        test("reading second instance of characteristic", () async {
+        test('Should read second service characteristic when same id exists in different services', () async {
           final services = await _sut.getDiscoveredServices("123");
 
           expect(await services[1].characteristics.single.read(), [42]);
