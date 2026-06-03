@@ -526,12 +526,7 @@ final class PluginController {
             try central.read(characteristic: characteristic)
         } catch {
             guard let sink = characteristicValueUpdateSink
-            else {
-                logger.error(
-                    "No subscription to report a characteristic read failure: \(String(describing: error), privacy: .public)"
-                )
-                return
-            }
+            else { return }
 
             let message = CharacteristicValueInfo.with {
                 $0.characteristic = args.characteristic
