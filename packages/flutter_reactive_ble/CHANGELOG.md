@@ -1,3 +1,7 @@
+## 5.5.0
+
+* Added Swift Package Manager support #921
+
 ## 5.4.2+2
 
 * Improve BLE state restoration when app returns from background on iOS

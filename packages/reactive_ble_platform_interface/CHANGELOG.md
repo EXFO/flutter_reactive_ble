@@ -1,3 +1,7 @@
+## 5.5.0
+
+* Added Swift Package Manager support #921
+
 ## 5.4.2+2
 
 * Bump version for 5.4.2+2 release (implementation fixes in `reactive_ble_mobile` and `flutter_reactive_ble`)

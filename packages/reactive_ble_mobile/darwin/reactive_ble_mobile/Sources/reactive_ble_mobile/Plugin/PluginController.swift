@@ -1,3 +1,9 @@
+#if os(iOS)
+  import Flutter
+#elseif os(macOS)
+  import FlutterMacOS
+#endif
+
 import class CoreBluetooth.CBUUID
 import class CoreBluetooth.CBService
 import enum CoreBluetooth.CBManagerState
@@ -228,9 +234,7 @@ final class PluginController {
                 $0.connectionState = encode(.connecting)
             }
             sink.add(.success(message))
-        } else {
-            print("Warning! No event channel set up to report a connection update")
-        }
+        } else { }
 
         do {
             try central.connect(
@@ -240,10 +244,7 @@ final class PluginController {
             )
         } catch {
             guard let sink = connectedDeviceSink
-            else {
-                print("Warning! No event channel set up to report a connection failure: \(error)")
-                return
-            }
+            else { return }
 
             let message = DeviceInfo.with {
                 $0.id = args.deviceID
@@ -453,10 +454,7 @@ final class PluginController {
             try central.read(characteristic: characteristic)
         } catch {
             guard let sink = characteristicValueUpdateSink
-            else {
-                print("Warning! No subscription to report a characteristic read failure: \(error)")
-                return
-            }
+            else { return }
 
             let message = CharacteristicValueInfo.with {
                 $0.characteristic = args.characteristic

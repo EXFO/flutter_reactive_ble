@@ -1,11 +1,11 @@
 name: reactive_ble_mobile
 description: Official Android and iOS implementation for the flutter_reactive_ble plugin.
-version: 5.4.2+2
+version: 5.5.0
 homepage: https://github.com/PhilipsHue/flutter_reactive_ble
 
 environment:
-  sdk: ">=2.12.0 <4.0.0"
-  flutter: ">=2.0.0"
+  sdk: ^3.11.0
+  flutter: ">=3.41.0"
 
 dependencies:
   flutter:
@@ -26,6 +26,8 @@ dependency_overrides:
     path: ../reactive_ble_platform_interface
 
 flutter:
+  config:
+    enable-swift-package-manager: true
   plugin:
     platforms:
       android:
