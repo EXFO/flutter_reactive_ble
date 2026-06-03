@@ -1,3 +1,7 @@
+## 5.4.2+2
+
+* Improve BLE state restoration when app returns from background on iOS
+
 ## 5.4.2+1
 
 * Fix memory leak in `ReactiveBle` device connection state subscription
