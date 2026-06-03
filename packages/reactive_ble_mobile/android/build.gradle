@@ -38,7 +38,9 @@ apply plugin: "io.gitlab.arturbosch.detekt"
 apply plugin: "de.mannodermaus.android-junit5"
 
 android {
+    namespace = 'com.signify.hue.flutterreactiveble'
     compileSdkVersion 36
+
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
         test.java.srcDirs += 'src/test/kotlin'
@@ -55,19 +57,17 @@ android {
         consumerProguardFiles 'proguard-rules.txt'
     }
 
-    namespace = 'com.signify.hue.flutterreactiveble'
-
     lint {
         disable 'InvalidPackage'
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_1_8.toString()
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 }
 
@@ -84,25 +84,26 @@ protobuf {
     protoc {
         artifact = 'com.google.protobuf:protoc:3.25.3'
     }
-
     generateProtoTasks {
         all().each { task ->
             task.builtins {
-                java {
-                    option "lite"
-                }
+                java { option "lite" }
             }
         }
     }
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    implementation 'com.polidea.rxandroidble2:rxandroidble:1.16.0'
-    implementation 'com.google.protobuf:protobuf-javalite:3.25.3'
-    implementation 'io.reactivex.rxjava2:rxkotlin:2.4.0'
-    implementation 'io.reactivex.rxjava2:rxandroid:2.1.1'
+    // Core
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
 
+    implementation "com.polidea.rxandroidble2:rxandroidble:1.19.1"
+    implementation "io.reactivex.rxjava2:rxandroid:2.1.1"
+    implementation "io.reactivex.rxjava2:rxkotlin:2.4.0"
+
+    implementation 'com.google.protobuf:protobuf-javalite:3.25.3'
+
+    // Test
     testImplementation "org.junit.jupiter:junit-jupiter-api:5.7.0"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.7.0"
     testImplementation "io.mockk:mockk:1.11.0"
