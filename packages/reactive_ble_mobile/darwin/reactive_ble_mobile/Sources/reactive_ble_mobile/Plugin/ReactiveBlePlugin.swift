@@ -62,11 +62,11 @@ public class ReactiveBlePlugin: NSObject, FlutterPlugin {
             name: "connected device stream handler",
             context: context,
             onListen: { context, sink in
-                context.connectedDeviceSink = sink
+                context.eventSink = sink
                 return nil
             },
             onCancel: { context in
-                context.connectedDeviceSink = nil
+                context.eventSink = nil
                 return nil
             }
         )

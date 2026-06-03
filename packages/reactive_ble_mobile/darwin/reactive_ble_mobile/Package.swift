@@ -24,6 +24,10 @@ let package = Package(
                     .product(name: "SwiftProtobuf", package: "swift-protobuf")
               ],
               resources: []
+          ),
+          .testTarget(
+              name: "reactive_ble_mobileTests",
+              dependencies: ["reactive_ble_mobile"]
           )
     ]
 )

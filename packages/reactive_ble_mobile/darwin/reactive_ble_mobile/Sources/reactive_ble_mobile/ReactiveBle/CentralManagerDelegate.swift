@@ -11,7 +11,7 @@ final class CentralManagerDelegate: NSObject, CBCentralManagerDelegate {
     typealias StateChangeHandler = (CBManagerState) -> Void
     typealias DiscoveryHandler = (CBPeripheral, AdvertisementData, RSSI) -> Void
     typealias ConnectionChangeHandler = (CBPeripheral, ConnectionChange) -> Void
-    typealias RestorationHandler = ([CBPeripheral]) -> Void
+    typealias RestorationHandler = ([CBPeripheral], [CBUUID]?) -> Void
 
     private let onStateChange: StateChangeHandler
     private let onDiscovery: DiscoveryHandler
@@ -52,7 +52,13 @@ final class CentralManagerDelegate: NSObject, CBCentralManagerDelegate {
 
     func centralManager(_ central: CBCentralManager, willRestoreState dict: [String: Any]) {
         let peripherals = dict[CBCentralManagerRestoredStatePeripheralsKey] as? [CBPeripheral] ?? []
-        onRestoreState(peripherals)
+        let scanServiceUuids = dict[CBCentralManagerRestoredStateScanServicesKey] as? [CBUUID]
+        let isScanRestored = dict[CBCentralManagerRestoredStateScanServicesKey] != nil ||
+            dict[CBCentralManagerRestoredStateScanOptionsKey] != nil
+        let restoredScanServices = isScanRestored ? (scanServiceUuids ?? []) : nil
+        let scanServicesCount = restoredScanServices?.count ?? 0
+
+        onRestoreState(peripherals, restoredScanServices)
     }
 
 }

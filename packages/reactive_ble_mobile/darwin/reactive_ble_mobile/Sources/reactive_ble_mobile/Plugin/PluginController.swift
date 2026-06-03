@@ -19,8 +19,25 @@ final class PluginController {
         let services: [CBUUID]
     }
 
+    private static let autoReconnectDelayInSeconds: TimeInterval = 1.5
+    private static let maxBufferedConnectionEvents = 200
+
     private var central: Central?
-    private var scan: StreamingTask<Scan>?
+
+    private let eventDispatchQueue = DispatchQueue(label: "com.signify.hue.flutterreactiveble.plugin.events")
+    private let reconnectDispatchQueue = DispatchQueue(label: "com.signify.hue.flutterreactiveble.plugin.reconnect")
+    private let scanDispatchQueue = DispatchQueue(label: "com.signify.hue.flutterreactiveble.plugin.scan")
+
+    private var _eventSink: EventSink?
+    var characteristicValueUpdateSink: EventSink?
+    var eventSink: EventSink? {
+        get {
+            eventDispatchQueue.sync { _eventSink }
+        }
+        set {
+            updateEventSink(newValue)
+        }
+    }
     var stateSink: EventSink? {
         didSet {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
@@ -28,14 +45,46 @@ final class PluginController {
             }
         }
     }
+
+    private var _isEventSinkReady = false
+    var isEventSinkReady: Bool {
+        eventDispatchQueue.sync { _isEventSinkReady }
+    }
+
+    private var _pendingEvents: [DeviceInfo] = []
     var messageQueue: [CharacteristicValueInfo] = []
-    var connectedDeviceSink: EventSink?
-    var characteristicValueUpdateSink: EventSink?
+    var pendingEvents: [DeviceInfo] {
+        eventDispatchQueue.sync { _pendingEvents }
+    }
+
+    private var _scan: StreamingTask<Scan>?
+    private var scan: StreamingTask<Scan>? {
+        get {
+            scanDispatchQueue.sync { _scan }
+        }
+        set {
+            scanDispatchQueue.sync { _scan = newValue }
+        }
+    }
+
+    private var autoReconnectTargets: [PeripheralID: ServicesWithCharacteristicsToDiscover] = [:]
+    private var reconnectWorkItems: [PeripheralID: DispatchWorkItem] = [:]
+
+    private var manualDisconnects = Set<PeripheralID>()
+
+    init() {
+        ensureCentralInitialized()
+    }
 
     func initialize(name: String, completion: @escaping PlatformMethodCompletionHandler) {
-        if let central = central {
-            central.stopScan()
-            central.disconnectAll()
+        ensureCentralInitialized()
+
+        completion(.success(nil))
+    }
+
+    private func ensureCentralInitialized() {
+        guard central == nil else {
+            return
         }
 
         central = Central(
@@ -80,6 +129,7 @@ final class PluginController {
 
                 switch change {
                 case .connected:
+                    context.handleConnectedDevice(peripheral.identifier)
                     // Wait for services & characteristics to be discovered
                     return
                 case .failedToConnect(let underlyingError), .disconnected(let underlyingError):
@@ -97,12 +147,15 @@ final class PluginController {
                     }
                 }
 
-                context.connectedDeviceSink?.add(.success(message))
+                context.emitOrBuffer(event: message)
+                context.scheduleAutoReconnectIfNeeded(for: peripheral.identifier)
+            },
+            onRestoredState: papply(weak: self) { context, _, peripheralIds, scanServiceUuids in
+                if let scanServiceUuids = scanServiceUuids {
+                    context.scan = StreamingTask(parameters: .init(services: scanServiceUuids))
+                }
             },
             onServicesWithCharacteristicsInitialDiscovery: papply(weak: self) { context, central, peripheral, errors in
-                guard let sink = context.connectedDeviceSink
-                else { return }
-
                 let message = DeviceInfo.with {
                     $0.id = peripheral.identifier.uuidString
                     $0.connectionState = encode(peripheral.state)
@@ -114,7 +167,7 @@ final class PluginController {
                     }
                 }
 
-                sink.add(.success(message))
+                context.emitOrBuffer(event: message)
             },
             onCharacteristicValueUpdate: papply(weak: self) { context, central, characteristic, value, error in
                 let message = CharacteristicValueInfo.with {
@@ -144,8 +197,6 @@ final class PluginController {
                 }
             }
         )
-
-        completion(.success(nil))
     }
 
     func deinitialize(name: String, completion: @escaping PlatformMethodCompletionHandler) {
@@ -159,6 +210,20 @@ final class PluginController {
         central.disconnectAll()
 
         self.central = nil
+        self.scan = nil
+        self.characteristicValueUpdateSink = nil
+        self.messageQueue.removeAll()
+        updateEventSink(nil)
+        eventDispatchQueue.sync {
+            _pendingEvents.removeAll()
+            _isEventSinkReady = false
+        }
+        reconnectDispatchQueue.sync {
+            reconnectWorkItems.values.forEach { $0.cancel() }
+            reconnectWorkItems.removeAll()
+            autoReconnectTargets.removeAll()
+            manualDisconnects.removeAll()
+        }
 
         completion(.success(nil))
     }
@@ -170,7 +235,11 @@ final class PluginController {
             return
         }
 
-        assert(!central.isScanning)
+        // A scan may already be in progress if iOS restored one after a relaunch.
+        // Stop it defensively so the freshly requested scan parameters take effect.
+        if central.isScanning {
+            central.stopScan()
+        }
 
         scan = StreamingTask(parameters: .init(services: args.serviceUuids.map({ uuid in CBUUID(data: uuid.data) })))
 
@@ -186,7 +255,9 @@ final class PluginController {
 
         self.scan = scan.with(sink: sink)
 
-        central.scanForDevices(with: scan.parameters.services)
+        if !central.isScanning {
+            central.scanForDevices(with: scan.parameters.services)
+        }
 
         return nil
     }
@@ -226,15 +297,18 @@ final class PluginController {
 
         let timeout = args.timeoutInMs > 0 ? TimeInterval(args.timeoutInMs) / 1000 : nil
 
+        registerAutoReconnectIntent(
+            for: deviceID,
+            discover: servicesWithCharacteristicsToDiscover
+        )
+
         completion(.success(nil))
 
-        if let sink = connectedDeviceSink {
-            let message = DeviceInfo.with {
-                $0.id = args.deviceID
-                $0.connectionState = encode(.connecting)
-            }
-            sink.add(.success(message))
-        } else { }
+        let connectingMessage = DeviceInfo.with {
+            $0.id = args.deviceID
+            $0.connectionState = encode(.connecting)
+        }
+        emitOrBuffer(event: connectingMessage)
 
         do {
             try central.connect(
@@ -243,9 +317,6 @@ final class PluginController {
                 timeout: timeout
             )
         } catch {
-            guard let sink = connectedDeviceSink
-            else { return }
-
             let message = DeviceInfo.with {
                 $0.id = args.deviceID
                 $0.connectionState = encode(.disconnected)
@@ -255,7 +326,7 @@ final class PluginController {
                 }
             }
 
-            sink.add(.success(message))
+            emitOrBuffer(event: message)
         }
     }
 
@@ -274,6 +345,7 @@ final class PluginController {
 
         completion(.success(nil))
 
+        markManualDisconnect(for: deviceID)
         central.disconnect(from: deviceID)
     }
 
@@ -454,7 +526,12 @@ final class PluginController {
             try central.read(characteristic: characteristic)
         } catch {
             guard let sink = characteristicValueUpdateSink
-            else { return }
+            else {
+                logger.error(
+                    "No subscription to report a characteristic read failure: \(String(describing: error), privacy: .public)"
+                )
+                return
+            }
 
             let message = CharacteristicValueInfo.with {
                 $0.characteristic = args.characteristic
@@ -621,6 +698,149 @@ final class PluginController {
         } else {
             return PluginError.unknown(error).asFlutterError
         }
+    }
+
+    private func registerAutoReconnectIntent(
+        for peripheralID: PeripheralID,
+        discover servicesWithCharacteristicsToDiscover: ServicesWithCharacteristicsToDiscover
+    ) {
+        reconnectDispatchQueue.sync {
+            manualDisconnects.remove(peripheralID)
+            autoReconnectTargets[peripheralID] = servicesWithCharacteristicsToDiscover
+            reconnectWorkItems[peripheralID]?.cancel()
+            reconnectWorkItems[peripheralID] = nil
+        }
+    }
+
+    private func markManualDisconnect(for peripheralID: PeripheralID) {
+        reconnectDispatchQueue.sync {
+            manualDisconnects.insert(peripheralID)
+            autoReconnectTargets.removeValue(forKey: peripheralID)
+            reconnectWorkItems[peripheralID]?.cancel()
+            reconnectWorkItems[peripheralID] = nil
+        }
+    }
+
+    private func handleConnectedDevice(_ peripheralID: PeripheralID) {
+        reconnectDispatchQueue.sync {
+            reconnectWorkItems[peripheralID]?.cancel()
+            reconnectWorkItems[peripheralID] = nil
+            // A successful connection means a future disconnection should be treated
+            // as recoverable unless the user explicitly asked to disconnect.
+            manualDisconnects.remove(peripheralID)
+        }
+    }
+
+    private func scheduleAutoReconnectIfNeeded(for peripheralID: PeripheralID) {
+        let workItem: DispatchWorkItem? = reconnectDispatchQueue.sync {
+            guard !manualDisconnects.contains(peripheralID),
+                  autoReconnectTargets[peripheralID] != nil
+            else {
+                return nil
+            }
+
+            reconnectWorkItems[peripheralID]?.cancel()
+            let workItem = DispatchWorkItem { [weak self] in
+                self?.attemptAutoReconnect(for: peripheralID)
+            }
+            reconnectWorkItems[peripheralID] = workItem
+            return workItem
+        }
+
+        guard let workItem = workItem else {
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.autoReconnectDelayInSeconds, execute: workItem)
+    }
+
+    private func attemptAutoReconnect(for peripheralID: PeripheralID) {
+        let discover: ServicesWithCharacteristicsToDiscover? = reconnectDispatchQueue.sync {
+            reconnectWorkItems[peripheralID] = nil
+            guard !manualDisconnects.contains(peripheralID) else {
+                return nil
+            }
+            return autoReconnectTargets[peripheralID]
+        }
+
+        guard let central = central, let discover = discover else {
+            return
+        }
+
+        do {
+            try central.connect(
+                to: peripheralID,
+                discover: discover,
+                timeout: nil
+            )
+
+            let message = DeviceInfo.with {
+                $0.id = peripheralID.uuidString
+                $0.connectionState = encode(.connecting)
+            }
+            emitOrBuffer(event: message)
+        } catch {
+            // If the peripheral is temporarily unavailable, keep trying as long as
+            // the connection intent remains active and wasn't manually cancelled.
+            scheduleAutoReconnectIfNeeded(for: peripheralID)
+        }
+    }
+
+    func emitOrBuffer(event: DeviceInfo) {
+        let sinkToEmit: EventSink? = eventDispatchQueue.sync {
+            if let sink = _eventSink {
+                return sink
+            }
+
+            _pendingEvents.append(event)
+            let overflow = _pendingEvents.count - Self.maxBufferedConnectionEvents
+            if overflow > 0 {
+                _pendingEvents.removeFirst(overflow)
+            }
+            return nil
+        }
+
+        if let sink = sinkToEmit {
+            sink.add(.success(event))
+        }
+    }
+
+    func flushPendingEvents() {
+        let (sink, events): (EventSink?, [DeviceInfo]) = eventDispatchQueue.sync {
+            guard let sink = _eventSink else {
+                return (nil, [])
+            }
+            let events = _pendingEvents
+            _pendingEvents.removeAll()
+            return (sink, events)
+        }
+
+        guard let sink = sink else {
+            return
+        }
+
+        events.forEach { sink.add(.success($0)) }
+    }
+
+    private func updateEventSink(_ sink: EventSink?) {
+        let eventsToFlush: [DeviceInfo] = eventDispatchQueue.sync {
+            _eventSink = sink
+            _isEventSinkReady = sink != nil
+
+            guard sink != nil else {
+                return []
+            }
+
+            let events = _pendingEvents
+            _pendingEvents.removeAll()
+            return events
+        }
+
+        guard let sink = sink else {
+            return
+        }
+
+        eventsToFlush.forEach { sink.add(.success($0)) }
     }
 
     private func reportState(_ knownState: CBManagerState? = nil) {

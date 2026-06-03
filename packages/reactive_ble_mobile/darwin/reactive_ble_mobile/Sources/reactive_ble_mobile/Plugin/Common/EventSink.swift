@@ -4,6 +4,7 @@
   import FlutterMacOS
 #endif
 
+import Foundation
 import enum SwiftProtobuf.BinaryEncodingError
 
 struct EventSink {
@@ -16,22 +17,38 @@ struct EventSink {
         self.sink = sink
     }
 
+    private func emitOnMain(_ value: Any?) {
+        if Thread.isMainThread {
+            sink(value)
+            return
+        }
+
+        DispatchQueue.main.async {
+            sink(value)
+        }
+    }
+
     func add(_ event: PlatformMethodResult) {
         switch event {
         case .success(let message):
             if let message = message {
                 do {
-                    sink(FlutterStandardTypedData(bytes: try message.serializedData()))
+                    emitOnMain(FlutterStandardTypedData(bytes: try message.serializedData()))
                 } catch let error as BinaryEncodingError {
-                    sink(PluginError.messageSerializationFailure(type: type(of: message), underlyingError: error).asFlutterError)
+                    emitOnMain(
+                        PluginError.messageSerializationFailure(
+                            type: type(of: message),
+                            underlyingError: error
+                        ).asFlutterError
+                    )
                 } catch {
-                    sink(PluginError.unknown(error).asFlutterError)
+                    emitOnMain(PluginError.unknown(error).asFlutterError)
                 }
             } else {
-                sink(nil)
+                emitOnMain(nil)
             }
         case .failure(let error):
-            sink(error)
+            emitOnMain(error)
         }
     }
 }

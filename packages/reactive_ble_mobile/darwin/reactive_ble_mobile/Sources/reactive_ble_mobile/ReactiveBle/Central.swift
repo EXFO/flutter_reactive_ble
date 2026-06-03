@@ -16,14 +16,14 @@ final class Central {
     typealias StateChangeHandler = (Central, CBManagerState) -> Void
     typealias DiscoveryHandler = (Central, CBPeripheral, AdvertisementData, RSSI) -> Void
     typealias ConnectionChangeHandler = (Central, CBPeripheral, ConnectionChange) -> Void
+    typealias RestoredStateHandler = (Central, [PeripheralID], [ServiceID]?) -> Void
     typealias ServicesWithCharacteristicsDiscoveryHandler = (Central, CBPeripheral, [Error]) -> Void
     typealias CharacteristicNotifyCompletionHandler = (Central, Error?) -> Void
     typealias CharacteristicValueUpdateHandler = (Central, CharacteristicInstance, Data?, Error?) -> Void
     typealias CharacteristicWriteCompletionHandler = (Central, CharacteristicInstance, Error?) -> Void
 
     private let onServicesWithCharacteristicsInitialDiscovery: ServicesWithCharacteristicsDiscoveryHandler
-
-    private let queue = DispatchQueue(label: "com.signifiy.hue.flutterreactiveble.central", qos: .default)
+    private let onRestoredState: RestoredStateHandler
 
     private var peripheralDelegate: PeripheralDelegate!
     private var centralManagerDelegate: CentralManagerDelegate!
@@ -37,14 +37,19 @@ final class Central {
     private let characteristicWriteRegistry = PeripheralTaskRegistry<CharacteristicWriteTaskController>()
     private let readRssiRegistry = PeripheralTaskRegistry<ReadRssiTaskController>()
 
+    private let queueIdentifier = DispatchQueue(label: "com.signifiy.hue.flutterreactiveble.central.queue", qos: .default)
+    private static let restoreIdentifier = "com.signifiy.hue.flutterreactiveble.central.restoration"
+
     init(
         onStateChange: @escaping StateChangeHandler,
         onDiscovery: @escaping DiscoveryHandler,
         onConnectionChange: @escaping ConnectionChangeHandler,
+        onRestoredState: @escaping RestoredStateHandler = { _, _, _ in },
         onServicesWithCharacteristicsInitialDiscovery: @escaping ServicesWithCharacteristicsDiscoveryHandler,
         onCharacteristicValueUpdate: @escaping CharacteristicValueUpdateHandler
     ) {
         self.onServicesWithCharacteristicsInitialDiscovery = onServicesWithCharacteristicsInitialDiscovery
+        self.onRestoredState = onRestoredState
         self.centralManagerDelegate = CentralManagerDelegate(
             onStateChange: papply(weak: self) { central, state in
                 if state != .poweredOn {
@@ -72,7 +77,10 @@ final class Central {
 
                 onConnectionChange(central, peripheral, change)
             },
-            onRestoreState: papply(weak: self) { central, peripherals in
+            onRestoreState: papply(weak: self) { central, peripherals, scanServiceUuids in
+                let peripheralIds = peripherals.map(\.identifier)
+                central.onRestoredState(central, peripheralIds, scanServiceUuids)
+                central.handleRestoredScan(scanServiceUuids)
                 central.handleRestoredPeripherals(peripherals)
                 peripherals.forEach { peripheral in
                     if peripheral.state == .connected {
@@ -133,15 +141,14 @@ final class Central {
             }
         )
 
-        let restorationIdentifier = "com.signify.hue.flutterreactiveble.restoration"
         let options: [String: Any] = [
             CBCentralManagerOptionShowPowerAlertKey: true,
-            CBCentralManagerOptionRestoreIdentifierKey: restorationIdentifier,
+            CBCentralManagerOptionRestoreIdentifierKey: Self.restoreIdentifier,
         ]
 
         self.centralManager = CBCentralManager(
             delegate: centralManagerDelegate,
-            queue: queue,
+            queue: queueIdentifier,
             options: options
         )
     }
@@ -374,6 +381,14 @@ final class Central {
             peripheral.delegate = peripheralDelegate
             activePeripherals[peripheral.identifier] = peripheral
         }
+    }
+
+    private func handleRestoredScan(_ restoredScanServices: [ServiceID]?) {
+        guard let restoredScanServices = restoredScanServices else {
+            return
+        }
+
+        isScanning = true
     }
 
     private func resolve(known peripheralID: PeripheralID) throws -> CBPeripheral {
