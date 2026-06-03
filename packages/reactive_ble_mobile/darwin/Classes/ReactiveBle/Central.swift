@@ -124,9 +124,13 @@ final class Central {
                 )
             }
         )
+
+       let options: [String: Any] = [CBCentralManagerOptionShowPowerAlertKey: true]
+
         self.centralManager = CBCentralManager(
             delegate: centralManagerDelegate,
-            queue: queue
+            queue: queue,
+            options: options
         )
     }
 
