@@ -71,6 +71,14 @@ final class Central {
                 }
 
                 onConnectionChange(central, peripheral, change)
+            },
+            onRestoreState: papply(weak: self) { central, peripherals in
+                central.handleRestoredPeripherals(peripherals)
+                peripherals.forEach { peripheral in
+                    if peripheral.state == .connected {
+                        onConnectionChange(central, peripheral, .connected)
+                    }
+                }
             }
         )
         self.peripheralDelegate = PeripheralDelegate(
@@ -125,7 +133,11 @@ final class Central {
             }
         )
 
-       let options: [String: Any] = [CBCentralManagerOptionShowPowerAlertKey: true]
+        let restorationIdentifier = "com.signify.hue.flutterreactiveble.restoration"
+        let options: [String: Any] = [
+            CBCentralManagerOptionShowPowerAlertKey: true,
+            CBCentralManagerOptionRestoreIdentifierKey: restorationIdentifier,
+        ]
 
         self.centralManager = CBCentralManager(
             delegate: centralManagerDelegate,
@@ -351,6 +363,17 @@ final class Central {
             in: peripheral.identifier,
             action: { $0.cancel(error: error) }
         )
+    }
+
+    private func handleRestoredPeripherals(_ peripherals: [CBPeripheral]) {
+        guard !peripherals.isEmpty else {
+            return
+        }
+
+        peripherals.forEach { peripheral in
+            peripheral.delegate = peripheralDelegate
+            activePeripherals[peripheral.identifier] = peripheral
+        }
     }
 
     private func resolve(known peripheralID: PeripheralID) throws -> CBPeripheral {
