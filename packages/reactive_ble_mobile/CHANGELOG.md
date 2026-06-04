@@ -1,3 +1,8 @@
+## 5.5.0+1
+
+* Improve BLE state restoration behavior on iOS when returning from background
+* Improve iOS plugin event handling to reduce lost events during startup/restoration
+
 ## 5.5.0
 
 * Added Swift Package Manager support #921

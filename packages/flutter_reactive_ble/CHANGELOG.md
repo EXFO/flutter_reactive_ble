@@ -1,3 +1,8 @@
+## 5.5.0+1
+
+* Add `connectSmartToDevice` and `BleConnectionType` to simplify foreground/background connection handling
+* Improve BLE state restoration behavior on iOS when returning from background
+
 ## 5.5.0
 
 * Added Swift Package Manager support #921
