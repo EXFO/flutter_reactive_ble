@@ -45,4 +45,10 @@ enum ConnectionError {
 
   /// An attempt to connect was made but it failed.
   failedToConnect,
+
+  /// Connection attempt or active connection timed out.
+  timeout,
+
+  /// The remote peer terminated the connection.
+  terminatePeerUser,
 }

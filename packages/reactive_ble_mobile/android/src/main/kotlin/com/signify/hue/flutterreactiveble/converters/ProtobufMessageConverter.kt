@@ -13,11 +13,11 @@ import com.signify.hue.flutterreactiveble.ble.RequestConnectionPriorityResult
 import com.signify.hue.flutterreactiveble.ble.RequestConnectionPrioritySuccess
 import com.signify.hue.flutterreactiveble.ble.ScanInfo
 import com.signify.hue.flutterreactiveble.model.CharacteristicErrorType
-import com.signify.hue.flutterreactiveble.model.ClearGattCacheErrorType
 import com.signify.hue.flutterreactiveble.model.ConnectionErrorType
 import com.signify.hue.flutterreactiveble.model.ConnectionState
 import com.signify.hue.flutterreactiveble.model.NegotiateMtuErrorType
 import com.signify.hue.flutterreactiveble.model.ScanErrorType
+import com.signify.hue.flutterreactiveble.utils.errorType
 import java.util.UUID
 import com.signify.hue.flutterreactiveble.ProtobufModel as pb
 
@@ -77,13 +77,17 @@ class ProtobufMessageConverter {
             .build()
     }
 
-    fun convertClearGattCacheError(
-        code: ClearGattCacheErrorType,
-        message: String?,
-    ): pb.ClearGattCacheInfo {
-        val failure = pb.GenericFailure.newBuilder().setCode(code.code)
-        message?.let(failure::setMessage)
-        return pb.ClearGattCacheInfo.newBuilder().setFailure(failure).build()
+    fun convertClearGattCacheError(throwable: Throwable): pb.ClearGattCacheInfo {
+        val errorType = throwable.errorType()
+
+        return pb.ClearGattCacheInfo.newBuilder()
+            .setFailure(
+                pb.GenericFailure.newBuilder()
+                    .setCode(errorType.code)
+                    .setMessage(throwable.message ?: "Clear GATT cache failed")
+                    .build(),
+            )
+            .build()
     }
 
     fun convertCharacteristicInfo(

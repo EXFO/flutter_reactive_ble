@@ -270,6 +270,38 @@ void main() {
         });
       });
 
+      group('given message with a timeout failure code', () {
+        setUp(() {
+          final failure = pb.GenericFailure()
+            ..code = 2
+            ..message = "timeout";
+          final deviceInfo = pb.DeviceInfo()..failure = failure;
+          message = deviceInfo.writeToBuffer();
+        });
+
+        test('failure timeout code is decoded', () {
+          final updateResult = sut.connectionStateUpdateFrom(message).failure!;
+          expect(updateResult.message, "timeout");
+          expect(updateResult.code, ConnectionError.timeout);
+        });
+      });
+
+      group('given message with terminate peer user failure code', () {
+        setUp(() {
+          final failure = pb.GenericFailure()
+            ..code = 3
+            ..message = "peer terminated";
+          final deviceInfo = pb.DeviceInfo()..failure = failure;
+          message = deviceInfo.writeToBuffer();
+        });
+
+        test('failure terminate peer user code is decoded', () {
+          final updateResult = sut.connectionStateUpdateFrom(message).failure!;
+          expect(updateResult.message, "peer terminated");
+          expect(updateResult.code, ConnectionError.terminatePeerUser);
+        });
+      });
+
       group('given an unknown status code', () {
         setUp(() {
           final info = pb.DeviceInfo()

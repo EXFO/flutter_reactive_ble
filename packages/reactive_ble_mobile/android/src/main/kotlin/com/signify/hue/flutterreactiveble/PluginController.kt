@@ -8,7 +8,6 @@ import com.signify.hue.flutterreactiveble.channelhandlers.DeviceConnectionHandle
 import com.signify.hue.flutterreactiveble.channelhandlers.ScanDevicesHandler
 import com.signify.hue.flutterreactiveble.converters.ProtobufMessageConverter
 import com.signify.hue.flutterreactiveble.converters.UuidConverter
-import com.signify.hue.flutterreactiveble.model.ClearGattCacheErrorType
 import com.signify.hue.flutterreactiveble.utils.discard
 import com.signify.hue.flutterreactiveble.utils.toConnectionPriority
 import io.flutter.plugin.common.BinaryMessenger
@@ -134,12 +133,9 @@ class PluginController {
                     val info = pb.ClearGattCacheInfo.getDefaultInstance()
                     result.success(info.toByteArray())
                 },
-                {
+                { throwable ->
                     val info =
-                        protoConverter.convertClearGattCacheError(
-                            ClearGattCacheErrorType.UNKNOWN,
-                            it.message,
-                        )
+                        protoConverter.convertClearGattCacheError(throwable)
                     result.success(info.toByteArray())
                 },
             )

@@ -22,8 +22,8 @@ internal class DeviceConnector(
     private val connectionQueue: ConnectionQueue,
 ) {
     companion object {
-        private const val minTimeMsBeforeDisconnectingIsAllowed = 200L
-        private const val delayMsAfterClearingCache = 300L
+        private const val minTimeMsBeforeDisconnectingIsAllowed = 500L
+        private const val delayMsAfterClearingCache = 500L
     }
 
     private val connectDeviceSubject = BehaviorSubject.create<EstablishConnectionResult>()
