@@ -15,10 +15,13 @@ final class PluginControllerEventBufferTests: XCTestCase {
         XCTAssertFalse(sut.isEventSinkReady)
 
         var emittedEvents = 0
+        let expectation = XCTestExpectation(description: "buffered event emitted")
         sut.eventSink = EventSink(name: "test") { _ in
             emittedEvents += 1
+            expectation.fulfill()
         }
 
+        wait(for: [expectation], timeout: 1.0)
         XCTAssertTrue(sut.isEventSinkReady)
         XCTAssertEqual(emittedEvents, 1)
         XCTAssertEqual(sut.pendingEvents.count, 0)
@@ -27,15 +30,15 @@ final class PluginControllerEventBufferTests: XCTestCase {
     func testBufferedEventsAreBounded() {
         let sut = PluginController()
 
-        (0..<205).forEach { index in
+        (0..<1005).forEach { index in
             let event = DeviceInfo.with {
                 $0.id = "test-device-\(index)"
             }
             sut.emitOrBuffer(event: event)
         }
 
-        XCTAssertEqual(sut.pendingEvents.count, 200)
+        XCTAssertEqual(sut.pendingEvents.count, 1000)
         XCTAssertEqual(sut.pendingEvents.first?.id, "test-device-5")
-        XCTAssertEqual(sut.pendingEvents.last?.id, "test-device-204")
+        XCTAssertEqual(sut.pendingEvents.last?.id, "test-device-1004")
     }
 }

@@ -14,13 +14,17 @@ import var CoreBluetooth.CBAdvertisementDataIsConnectable
 import var CoreBluetooth.CBAdvertisementDataLocalNameKey
 
 final class PluginController {
+    private enum StreamTarget {
+        case connectedDevice
+        case characteristicValue
+    }
 
     struct Scan {
         let services: [CBUUID]
     }
 
     private static let autoReconnectDelayInSeconds: TimeInterval = 1.5
-    private static let maxBufferedConnectionEvents = 200
+    private static let maxBufferedEvents = 1000
 
     private var central: Central?
 
@@ -28,14 +32,33 @@ final class PluginController {
     private let reconnectDispatchQueue = DispatchQueue(label: "com.signify.hue.flutterreactiveble.plugin.reconnect")
     private let scanDispatchQueue = DispatchQueue(label: "com.signify.hue.flutterreactiveble.plugin.scan")
 
-    private var _eventSink: EventSink?
-    var characteristicValueUpdateSink: EventSink?
+    private var connectedDeviceSink: EventSink?
+    private var characteristicValueSink: EventSink?
+    private var bufferedConnectedDeviceUpdates: [PlatformMethodResult] = []
+    private var bufferedCharacteristicValueUpdates: [PlatformMethodResult] = []
+
     var eventSink: EventSink? {
         get {
-            eventDispatchQueue.sync { _eventSink }
+            eventDispatchQueue.sync { connectedDeviceSink }
         }
         set {
-            updateEventSink(newValue)
+            if let sink = newValue {
+                attachSinkAndFlush(sink, to: .connectedDevice)
+            } else {
+                detachSink(for: .connectedDevice)
+            }
+        }
+    }
+    var characteristicValueUpdateSink: EventSink? {
+        get {
+            eventDispatchQueue.sync { characteristicValueSink }
+        }
+        set {
+            if let sink = newValue {
+                attachSinkAndFlush(sink, to: .characteristicValue)
+            } else {
+                detachSink(for: .characteristicValue)
+            }
         }
     }
     var stateSink: EventSink? {
@@ -46,15 +69,19 @@ final class PluginController {
         }
     }
 
-    private var _isEventSinkReady = false
     var isEventSinkReady: Bool {
-        eventDispatchQueue.sync { _isEventSinkReady }
+        eventDispatchQueue.sync { connectedDeviceSink != nil }
     }
 
-    private var _pendingEvents: [DeviceInfo] = []
-    var messageQueue: [CharacteristicValueInfo] = []
     var pendingEvents: [DeviceInfo] {
-        eventDispatchQueue.sync { _pendingEvents }
+        eventDispatchQueue.sync {
+            bufferedConnectedDeviceUpdates.compactMap { event in
+                guard case .success(let message) = event else {
+                    return nil
+                }
+                return message as? DeviceInfo
+            }
+        }
     }
 
     private var _scan: StreamingTask<Scan>?
@@ -188,13 +215,7 @@ final class PluginController {
                         }
                     }
                 }
-                let sink = context.characteristicValueUpdateSink
-                if let sink = context.characteristicValueUpdateSink {
-                    sink.add(.success(message))
-                } else {
-                    // In case message arrives before sink is created
-                    context.messageQueue.append(message)
-                }
+                context.emit(.success(message), to: .characteristicValue)
             }
         )
     }
@@ -211,12 +232,11 @@ final class PluginController {
 
         self.central = nil
         self.scan = nil
-        self.characteristicValueUpdateSink = nil
-        self.messageQueue.removeAll()
-        updateEventSink(nil)
         eventDispatchQueue.sync {
-            _pendingEvents.removeAll()
-            _isEventSinkReady = false
+            connectedDeviceSink = nil
+            characteristicValueSink = nil
+            bufferedConnectedDeviceUpdates.removeAll()
+            bufferedCharacteristicValueUpdates.removeAll()
         }
         reconnectDispatchQueue.sync {
             reconnectWorkItems.values.forEach { $0.cancel() }
@@ -782,60 +802,99 @@ final class PluginController {
     }
 
     func emitOrBuffer(event: DeviceInfo) {
-        let sinkToEmit: EventSink? = eventDispatchQueue.sync {
-            if let sink = _eventSink {
-                return sink
-            }
+        emit(.success(event), to: .connectedDevice)
+    }
 
-            _pendingEvents.append(event)
-            let overflow = _pendingEvents.count - Self.maxBufferedConnectionEvents
-            if overflow > 0 {
-                _pendingEvents.removeFirst(overflow)
+    private func emit(_ result: PlatformMethodResult, to target: StreamTarget) {
+        eventDispatchQueue.async { [weak self] in
+            guard let self else {
+                return
             }
-            return nil
-        }
-
-        if let sink = sinkToEmit {
-            sink.add(.success(event))
+            guard let sink = self.getSink(for: target) else {
+                self.appendToBuffer(result, for: target)
+                return
+            }
+            sink.add(result)
         }
     }
 
-    func flushPendingEvents() {
-        let (sink, events): (EventSink?, [DeviceInfo]) = eventDispatchQueue.sync {
-            guard let sink = _eventSink else {
-                return (nil, [])
+    private func attachSinkAndFlush(_ sink: EventSink, to target: StreamTarget) {
+        eventDispatchQueue.async { [weak self] in
+            guard let self else {
+                return
             }
-            let events = _pendingEvents
-            _pendingEvents.removeAll()
-            return (sink, events)
+            self.setSink(sink, for: target)
+            let pending = self.drainBuffer(for: target)
+            guard !pending.isEmpty else {
+                return
+            }
+            pending.forEach { sink.add($0) }
         }
-
-        guard let sink = sink else {
-            return
-        }
-
-        events.forEach { sink.add(.success($0)) }
     }
 
-    private func updateEventSink(_ sink: EventSink?) {
-        let eventsToFlush: [DeviceInfo] = eventDispatchQueue.sync {
-            _eventSink = sink
-            _isEventSinkReady = sink != nil
-
-            guard sink != nil else {
-                return []
+    private func detachSink(for target: StreamTarget) {
+        eventDispatchQueue.async { [weak self] in
+            guard let self else {
+                return
             }
-
-            let events = _pendingEvents
-            _pendingEvents.removeAll()
-            return events
+            self.setSink(nil, for: target)
         }
+    }
 
-        guard let sink = sink else {
+    // MARK: - Sink helpers
+    private func getSink(for target: StreamTarget) -> EventSink? {
+        switch target {
+        case .connectedDevice:
+            return connectedDeviceSink
+        case .characteristicValue:
+            return characteristicValueSink
+        }
+    }
+
+    private func setSink(_ sink: EventSink?, for target: StreamTarget) {
+        switch target {
+        case .connectedDevice:
+            connectedDeviceSink = sink
+        case .characteristicValue:
+            characteristicValueSink = sink
+        }
+    }
+
+    // MARK: - Buffer helpers
+    private func appendToBuffer(_ result: PlatformMethodResult, for target: StreamTarget) {
+        switch target {
+        case .connectedDevice:
+            bufferedConnectedDeviceUpdates.append(result)
+            trimBuffer(&bufferedConnectedDeviceUpdates, streamName: "connectedDevice")
+        case .characteristicValue:
+            bufferedCharacteristicValueUpdates.append(result)
+            trimBuffer(&bufferedCharacteristicValueUpdates, streamName: "characteristicValue")
+        }
+    }
+
+    private func trimBuffer(_ buffer: inout [PlatformMethodResult], streamName: String) {
+        let overflow = buffer.count - Self.maxBufferedEvents
+        guard overflow > 0 else {
             return
         }
+        print(
+            "reactive_ble_mobile: dropped \(overflow) oldest buffered \(streamName) event(s) " +
+                "(limit \(Self.maxBufferedEvents))"
+        )
+        buffer.removeFirst(overflow)
+    }
 
-        eventsToFlush.forEach { sink.add(.success($0)) }
+    private func drainBuffer(for target: StreamTarget) -> [PlatformMethodResult] {
+        switch target {
+        case .connectedDevice:
+            let pending = bufferedConnectedDeviceUpdates
+            bufferedConnectedDeviceUpdates.removeAll(keepingCapacity: true)
+            return pending
+        case .characteristicValue:
+            let pending = bufferedCharacteristicValueUpdates
+            bufferedCharacteristicValueUpdates.removeAll(keepingCapacity: true)
+            return pending
+        }
     }
 
     private func reportState(_ knownState: CBManagerState? = nil) {
