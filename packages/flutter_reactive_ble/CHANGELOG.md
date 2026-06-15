@@ -1,3 +1,7 @@
+## 5.5.0+2
+
+* Expose `ConnectionError.timeout` and `ConnectionError.terminatePeerUser` when the platform reports matching failure codes
+
 ## 5.5.0+1
 
 * Add `connectSmartToDevice` and `BleConnectionType` to simplify foreground/background connection handling

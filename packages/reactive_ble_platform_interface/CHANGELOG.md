@@ -1,3 +1,7 @@
+## 5.5.0+2
+
+* Add `ConnectionError.timeout` and `ConnectionError.terminatePeerUser` for native failure codes 2 and 3
+
 ## 5.5.0+1
 
 * Bump version for 5.5.0+1 release (implementation updates in `reactive_ble_mobile` and `flutter_reactive_ble`)

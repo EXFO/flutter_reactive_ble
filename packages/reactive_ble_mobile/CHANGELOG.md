@@ -1,3 +1,11 @@
+## 5.5.0+2
+
+* Android: classify `clearGattCache` failures from `BleDisconnectedException` state (timeout / peer-initiated disconnect) via `ErrorParser`; other errors map to unknown
+* Android: increase delay after successful GATT cache refresh to 500 ms
+* iOS: unify connected-device and characteristic-value event emission (serial queue, buffer when sink absent, FIFO flush on attach)
+* iOS: cap buffered plugin events at 1000 per stream (drop oldest, log when dropping)
+* Add `ConnectionError.timeout` and `ConnectionError.terminatePeerUser` (protobuf failure codes 2 and 3)
+
 ## 5.5.0+1
 
 * Improve BLE state restoration behavior on iOS when returning from background
