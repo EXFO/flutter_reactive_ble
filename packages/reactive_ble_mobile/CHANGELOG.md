@@ -1,3 +1,7 @@
+## 5.5.0+3
+
+* Android: Migration groovy to Kotlin
+
 ## 5.5.0+2
 
 * Android: classify `clearGattCache` failures from `BleDisconnectedException` state (timeout / peer-initiated disconnect) via `ErrorParser`; other errors map to unknown

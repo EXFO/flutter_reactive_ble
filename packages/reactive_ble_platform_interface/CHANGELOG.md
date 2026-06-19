@@ -1,3 +1,7 @@
+## 5.5.0+3
+
+* Bump version for 5.5.0+3 release (implementation updates in `reactive_ble_mobile`)
+
 ## 5.5.0+2
 
 * Add `ConnectionError.timeout` and `ConnectionError.terminatePeerUser` for native failure codes 2 and 3
