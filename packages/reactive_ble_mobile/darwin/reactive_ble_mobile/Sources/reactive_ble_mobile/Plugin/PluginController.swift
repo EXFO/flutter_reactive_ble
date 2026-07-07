@@ -63,7 +63,8 @@ final class PluginController {
     }
     var stateSink: EventSink? {
         didSet {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+
+            DispatchQueue.main.async { [weak self] in
                 self?.reportState()
             }
         }
