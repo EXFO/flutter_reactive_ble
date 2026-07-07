@@ -37,7 +37,7 @@ final class Central {
     private let characteristicWriteRegistry = PeripheralTaskRegistry<CharacteristicWriteTaskController>()
     private let readRssiRegistry = PeripheralTaskRegistry<ReadRssiTaskController>()
 
-    private let queueIdentifier = DispatchQueue(label: "com.signifiy.hue.flutterreactiveble.central.queue", qos: .default)
+    private let queueIdentifier = DispatchQueue(label: "com.signifiy.hue.flutterreactiveble.central.queue", qos: .userInitiated)
     private static let restoreIdentifier = "com.signifiy.hue.flutterreactiveble.central.restoration"
 
     init(
