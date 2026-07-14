@@ -31,13 +31,14 @@ final class Central {
 
     private(set) var isScanning = false
     private(set) var activePeripherals = [PeripheralID: CBPeripheral]()
-    private(set) var connectRegistry = PeripheralTaskRegistry<ConnectTaskController>()
-    private let servicesWithCharacteristicsDiscoveryRegistry = PeripheralTaskRegistry<ServicesWithCharacteristicsDiscoveryTaskController>()
-    private let characteristicNotifyRegistry = PeripheralTaskRegistry<CharacteristicNotifyTaskController>()
-    private let characteristicWriteRegistry = PeripheralTaskRegistry<CharacteristicWriteTaskController>()
-    private let readRssiRegistry = PeripheralTaskRegistry<ReadRssiTaskController>()
-
     private let queueIdentifier = DispatchQueue(label: "com.signifiy.hue.flutterreactiveble.central.queue", qos: .userInitiated)
+    private let queueSpecificKey = DispatchSpecificKey<UInt8>()
+    private let queueSpecificValue: UInt8 = 1
+    private(set) lazy var connectRegistry = PeripheralTaskRegistry<ConnectTaskController>(timeoutQueue: queueIdentifier)
+    private lazy var servicesWithCharacteristicsDiscoveryRegistry = PeripheralTaskRegistry<ServicesWithCharacteristicsDiscoveryTaskController>(timeoutQueue: queueIdentifier)
+    private lazy var characteristicNotifyRegistry = PeripheralTaskRegistry<CharacteristicNotifyTaskController>(timeoutQueue: queueIdentifier)
+    private lazy var characteristicWriteRegistry = PeripheralTaskRegistry<CharacteristicWriteTaskController>(timeoutQueue: queueIdentifier)
+    private lazy var readRssiRegistry = PeripheralTaskRegistry<ReadRssiTaskController>(timeoutQueue: queueIdentifier)
     private static let restoreIdentifier = "com.signifiy.hue.flutterreactiveble.central.restoration"
 
     init(
@@ -50,6 +51,7 @@ final class Central {
     ) {
         self.onServicesWithCharacteristicsInitialDiscovery = onServicesWithCharacteristicsInitialDiscovery
         self.onRestoredState = onRestoredState
+        self.queueIdentifier.setSpecific(key: queueSpecificKey, value: queueSpecificValue)
         self.centralManagerDelegate = CentralManagerDelegate(
             onStateChange: papply(weak: self) { central, state in
                 if state != .poweredOn {
@@ -153,69 +155,83 @@ final class Central {
         )
     }
 
-    var state: CBManagerState { return centralManager.state }
+    var state: CBManagerState {
+        performSync {
+            centralManager.state
+        }
+    }
 
     func scanForDevices(with services: [ServiceID]?) {
-        isScanning = true
-        centralManager.scanForPeripherals(
-            withServices: services,
-            options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
-        )
+        performSync {
+            isScanning = true
+            centralManager.scanForPeripherals(
+                withServices: services,
+                options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
+            )
+        }
     }
 
     func stopScan() {
-        centralManager.stopScan()
-        isScanning = false
+        performSync {
+            centralManager.stopScan()
+            isScanning = false
+        }
     }
 
     func connect(to peripheralID: PeripheralID, discover servicesWithCharacteristicsToDiscover: ServicesWithCharacteristicsToDiscover, timeout: TimeInterval?) throws {
-        let peripheral = try resolve(known: peripheralID)
+        try performSync {
+            let peripheral = try resolve(known: peripheralID)
 
-        peripheral.delegate = peripheralDelegate
-        activePeripherals[peripheral.identifier] = peripheral
+            peripheral.delegate = peripheralDelegate
+            activePeripherals[peripheral.identifier] = peripheral
 
-        connectRegistry.registerTask(
-            key: peripheralID,
-            params: .init(),
-            timeout: timeout.map { timeout in (
-                duration: timeout,
-                handler: papply(weak: self) { (central: Central) -> Void in
-                    central.disconnect(from: peripheralID)
+            connectRegistry.registerTask(
+                key: peripheralID,
+                params: .init(),
+                timeout: timeout.map { timeout in (
+                    duration: timeout,
+                    handler: papply(weak: self) { (central: Central) -> Void in
+                        central.disconnect(from: peripheralID)
+                    }
+                )},
+                completion: papply(weak: self) { central, connectionChange in
+                    switch connectionChange {
+                    case .connected:
+                        peripheral.delegate = central.peripheralDelegate
+
+                        central.discoverServicesWithCharacteristics(
+                            for: peripheral,
+                            discover: servicesWithCharacteristicsToDiscover,
+                            completion: central.onServicesWithCharacteristicsInitialDiscovery
+                        )
+                    case .failedToConnect, .disconnected:
+                        break
+                    }
                 }
-            )},
-            completion: papply(weak: self) { central, connectionChange in
-                switch connectionChange {
-                case .connected:
-                    peripheral.delegate = central.peripheralDelegate
+            )
 
-                    central.discoverServicesWithCharacteristics(
-                        for: peripheral,
-                        discover: servicesWithCharacteristicsToDiscover,
-                        completion: central.onServicesWithCharacteristicsInitialDiscovery
-                    )
-                case .failedToConnect, .disconnected:
-                    break
-                }
-            }
-        )
-
-        connectRegistry.updateTask(
-            key: peripheralID,
-            action: { $0.connect(centralManager: centralManager, peripheral: peripheral) }
-        )
+            connectRegistry.updateTask(
+                key: peripheralID,
+                action: { $0.connect(centralManager: centralManager, peripheral: peripheral) }
+            )
+        }
     }
 
     func disconnect(from peripheralID: PeripheralID) {
-        guard let peripheral = try? resolve(known: peripheralID)
-        else { return }
+        performSync {
+            guard let peripheral = try? resolve(known: peripheralID)
+            else { return }
 
-        centralManager.cancelPeripheralConnection(peripheral)
+            centralManager.cancelPeripheralConnection(peripheral)
+        }
     }
 
     func disconnectAll() {
-        activePeripherals
-            .values
-            .forEach(centralManager.cancelPeripheralConnection)
+        performSync {
+            activePeripherals
+                .values
+                .forEach(centralManager.cancelPeripheralConnection)
+        }
     }
 
     func discoverServicesWithCharacteristics(
@@ -223,17 +239,21 @@ final class Central {
         discover servicesWithCharacteristicsToDiscover: ServicesWithCharacteristicsToDiscover,
         completion: @escaping ServicesWithCharacteristicsDiscoveryHandler
     ) throws {
-        let peripheral = try resolve(connected: peripheralID)
+        try performSync {
+            let peripheral = try resolve(connected: peripheralID)
 
-        discoverServicesWithCharacteristics(
-            for: peripheral,
-            discover: servicesWithCharacteristicsToDiscover,
-            completion: completion
-        )
+            discoverServicesWithCharacteristics(
+                for: peripheral,
+                discover: servicesWithCharacteristicsToDiscover,
+                completion: completion
+            )
+        }
     }
 
     func peripheral(for peripheralID: PeripheralID) throws -> CBPeripheral {
-        return try resolve(connected: peripheralID)
+        try performSync {
+            try resolve(connected: peripheralID)
+        }
     }
 
     private func discoverServicesWithCharacteristics(
@@ -255,36 +275,40 @@ final class Central {
     }
 
     func turnNotifications(_ state: OnOff, for characteristicInstance: CharacteristicInstance, completion: @escaping CharacteristicNotifyCompletionHandler) throws {
-        let characteristic = try resolve(characteristic: characteristicInstance)
+        try performSync {
+            let characteristic = try resolve(characteristic: characteristicInstance)
 
-        guard [CBCharacteristicProperties.notify, .notifyEncryptionRequired, .indicate, .indicateEncryptionRequired]
-                .contains(where: characteristic.properties.contains)
-        else { throw Failure.notificationsNotSupported(characteristicInstance) }
+            guard [CBCharacteristicProperties.notify, .notifyEncryptionRequired, .indicate, .indicateEncryptionRequired]
+                    .contains(where: characteristic.properties.contains)
+            else { throw Failure.notificationsNotSupported(characteristicInstance) }
 
-        characteristicNotifyRegistry.registerTask(
-            key: characteristicInstance,
-            params: .init(state: state),
-            completion: papply(weak: self) { central, result in
-                completion(central, result)
-            }
-        )
+            characteristicNotifyRegistry.registerTask(
+                key: characteristicInstance,
+                params: .init(state: state),
+                completion: papply(weak: self) { central, result in
+                    completion(central, result)
+                }
+            )
 
-        characteristicNotifyRegistry.updateTask(
-            key: characteristicInstance,
-            action: { $0.start(characteristic: characteristic) }
-        )
+            characteristicNotifyRegistry.updateTask(
+                key: characteristicInstance,
+                action: { $0.start(characteristic: characteristic) }
+            )
+        }
     }
 
     func read(characteristic characteristicInstance: CharacteristicInstance) throws {
-        let characteristic = try resolve(characteristic: characteristicInstance)
+        try performSync {
+            let characteristic = try resolve(characteristic: characteristicInstance)
 
-        guard characteristic.properties.contains(.read)
-        else { throw Failure.notReadable(characteristicInstance) }
+            guard characteristic.properties.contains(.read)
+            else { throw Failure.notReadable(characteristicInstance) }
 
-        guard let peripheral = characteristic.service?.peripheral
-        else { throw Failure.peripheralIsUnknown(characteristicInstance.peripheralID) }
+            guard let peripheral = characteristic.service?.peripheral
+            else { throw Failure.peripheralIsUnknown(characteristicInstance.peripheralID) }
 
-        peripheral.readValue(for: characteristic)
+            peripheral.readValue(for: characteristic)
+        }
     }
 
     func writeWithResponse(
@@ -292,66 +316,94 @@ final class Central {
         characteristic characteristicInstance: CharacteristicInstance,
         completion: @escaping CharacteristicWriteCompletionHandler
     ) throws {
-        let characteristic = try resolve(characteristic: characteristicInstance)
+        try performSync {
+            let characteristic = try resolve(characteristic: characteristicInstance)
 
-        guard characteristic.properties.contains(.write)
-        else { throw Failure.notWritable(characteristicInstance) }
+            guard characteristic.properties.contains(.write)
+            else { throw Failure.notWritable(characteristicInstance) }
 
-        let qualifiedChar = try CharacteristicInstance(characteristic)
+            let qualifiedChar = try CharacteristicInstance(characteristic)
 
-        characteristicWriteRegistry.registerTask(
-            key: qualifiedChar,
-            params: .init(value: value),
-            completion: papply(weak: self) { central, error in
-                completion(central, qualifiedChar, error)
-            }
-        )
+            characteristicWriteRegistry.registerTask(
+                key: qualifiedChar,
+                params: .init(value: value),
+                completion: papply(weak: self) { central, error in
+                    completion(central, qualifiedChar, error)
+                }
+            )
 
-        guard let peripheral = characteristic.service?.peripheral
-        else { throw Failure.peripheralIsUnknown(qualifiedChar.peripheralID) }
+            guard let peripheral = characteristic.service?.peripheral
+            else { throw Failure.peripheralIsUnknown(qualifiedChar.peripheralID) }
 
-        characteristicWriteRegistry.updateTask(
-            key: qualifiedChar,
-            action: { $0.start(peripheral: peripheral) }
-        )
+            characteristicWriteRegistry.updateTask(
+                key: qualifiedChar,
+                action: { $0.start(peripheral: peripheral) }
+            )
+        }
     }
 
     func writeWithoutResponse(
         value: Data,
         characteristic characteristicInstance: CharacteristicInstance
     ) throws {
-        let characteristic = try resolve(characteristic: characteristicInstance)
+        try performSync {
+            let characteristic = try resolve(characteristic: characteristicInstance)
 
-        guard characteristic.properties.contains(.writeWithoutResponse)
-        else { throw Failure.notWritable(characteristicInstance) }
+            guard characteristic.properties.contains(.writeWithoutResponse)
+            else { throw Failure.notWritable(characteristicInstance) }
 
-        guard let response = characteristic.service?.peripheral?.writeValue(value, for: characteristic, type: .withoutResponse)
-        else { throw Failure.characteristicNotFound(characteristicInstance) }
+            guard let response = characteristic.service?.peripheral?.writeValue(value, for: characteristic, type: .withoutResponse)
+            else { throw Failure.characteristicNotFound(characteristicInstance) }
 
-        return response
+            return response
+        }
     }
 
     func maximumWriteValueLength(for peripheral: PeripheralID, type: CBCharacteristicWriteType) throws -> Int {
-        let peripheral = try resolve(connected: peripheral)
-        return peripheral.maximumWriteValueLength(for: type)
+        try performSync {
+            let peripheral = try resolve(connected: peripheral)
+            return peripheral.maximumWriteValueLength(for: type)
+        }
     }
 
-    
     func readRssi(for peripheralId: PeripheralID, completion: @escaping (Failable<Int>) -> Void) throws {
-        let peripheral = try resolve(connected: peripheralId)
+        try performSync {
+            let peripheral = try resolve(connected: peripheralId)
 
-        readRssiRegistry.registerTask(
-            key: peripheralId,
-            params: .init(),
-            completion: completion
-        )
+            readRssiRegistry.registerTask(
+                key: peripheralId,
+                params: .init(),
+                completion: completion
+            )
 
-        readRssiRegistry.updateTask(
-            key: peripheralId,
-            action: {
-                $0.start(peripheral: peripheral)
+            readRssiRegistry.updateTask(
+                key: peripheralId,
+                action: {
+                    $0.start(peripheral: peripheral)
+                }
+            )
+        }
+    }
+
+    func shutdown(_ completion: @escaping () -> Void) {
+        queueIdentifier.async { [weak self] in
+            guard let self else {
+                DispatchQueue.main.async(execute: completion)
+                return
             }
-        )
+
+            self.centralManager.stopScan()
+            self.isScanning = false
+            self.connectRegistry.clearAll()
+            self.servicesWithCharacteristicsDiscoveryRegistry.clearAll()
+            self.characteristicNotifyRegistry.clearAll()
+            self.characteristicWriteRegistry.clearAll()
+            self.readRssiRegistry.clearAll()
+            self.activePeripherals.values.forEach(self.centralManager.cancelPeripheralConnection)
+            self.activePeripherals.removeAll()
+
+            DispatchQueue.main.async(execute: completion)
+        }
     }
 
     private func eject(_ peripheral: CBPeripheral, error: Error) {
@@ -426,6 +478,14 @@ final class Central {
         else { throw Failure.characteristicNotFound(characteristicInstance) }
 
         return filteredCharacteristics[characteristicsIndex]
+    }
+
+    private func performSync<T>(_ operation: () throws -> T) rethrows -> T {
+        if DispatchQueue.getSpecific(key: queueSpecificKey) == queueSpecificValue {
+            return try operation()
+        }
+
+        return try queueIdentifier.sync(execute: operation)
     }
 
     private enum Failure: Error, CustomStringConvertible {

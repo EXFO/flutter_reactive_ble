@@ -6,9 +6,14 @@ final class PeripheralTaskRegistry<Controller: PeripheralTaskController> {
     typealias TaskCompletionHandler = (SubjectTask.Key, SubjectTask.Params, SubjectTask.Result) -> Void
 
     private var tasks = TaskQueue()
-    private var scheduledTimeouts = [TaskQueue.Record.UniqueID: Timer]()
+    private var scheduledTimeouts = [TaskQueue.Record.UniqueID: DispatchWorkItem]()
+    private let timeoutQueue: DispatchQueue
 
     var log: (String) -> Void = { _ in }
+
+    init(timeoutQueue: DispatchQueue = .main) {
+        self.timeoutQueue = timeoutQueue
+    }
 
     func registerTask(
         key: SubjectTask.Key,
@@ -80,22 +85,34 @@ final class PeripheralTaskRegistry<Controller: PeripheralTaskController> {
     }
 
     private func clearTimeout(_ uniqueID: TaskQueue.Record.UniqueID) {
-        if let timer = scheduledTimeouts.removeValue(forKey: uniqueID) {
-            timer.invalidate()
+        if let timeoutWorkItem = scheduledTimeouts.removeValue(forKey: uniqueID) {
+            timeoutWorkItem.cancel()
         }
     }
 
     private func scheduleTaskTimeout(_ uniqueID: TaskQueue.Record.UniqueID, _ timeout: SubjectTask.Timeout) {
-        let timer = Timer.scheduledTimer(
-            withTimeInterval: timeout.duration,
-            repeats: false,
-            block: papply(weak: self) { registry, _ in
-                registry.log("\(Controller.TaskSpec.tag) op timed out after \(timeout.duration) s, \(registry.tasks.count - 1) in queue")
-                timeout.handler()
-                registry.remove(uniqueID)
+        let timeoutWorkItem = DispatchWorkItem { [weak self] in
+            guard let registry = self else {
+                return
             }
-        )
-        scheduledTimeouts[uniqueID] = timer
+
+            guard registry.scheduledTimeouts.removeValue(forKey: uniqueID) != nil else {
+                return
+            }
+
+            registry.log("\(Controller.TaskSpec.tag) op timed out after \(timeout.duration) s, \(registry.tasks.count - 1) in queue")
+            timeout.handler()
+            registry.remove(uniqueID)
+        }
+
+        scheduledTimeouts[uniqueID] = timeoutWorkItem
+        timeoutQueue.asyncAfter(deadline: .now() + timeout.duration, execute: timeoutWorkItem)
+    }
+
+    func clearAll() {
+        scheduledTimeouts.values.forEach { $0.cancel() }
+        scheduledTimeouts.removeAll()
+        tasks.removeAll()
     }
 
     private class TaskQueue {
@@ -139,6 +156,10 @@ final class PeripheralTaskRegistry<Controller: PeripheralTaskController> {
             else { return }
 
             records.remove(at: index)
+        }
+
+        func removeAll() {
+            records.removeAll()
         }
 
         struct Record {
