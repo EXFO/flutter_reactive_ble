@@ -81,7 +81,7 @@ void main() {
             );
           });
 
-          test('It emits connection updates for that device', () {
+          test('Should emit connection updates when connect succeeds', () {
             expect(_result,
                 emitsInOrder(<ConnectionStateUpdate?>[updateForDevice]));
           });
@@ -124,7 +124,8 @@ void main() {
           );
         });
 
-        test('It emits connection update with failure', () {
+        test('Should emit failure when a scan for a different service is running',
+            () {
           const expectedUpdate = ConnectionStateUpdate(
             deviceId: deviceId,
             connectionState: DeviceConnectionState.disconnected,
@@ -167,7 +168,8 @@ void main() {
             );
           });
 
-          test('It connects to device after scan has finished', () {
+          test('Should connect when device is discovered after scan finishes',
+              () {
             expect(_result,
                 emitsInOrder(<ConnectionStateUpdate?>[updateForDevice]));
           });
@@ -179,6 +181,8 @@ void main() {
                     deviceId: deviceId,
                     cacheValidity: anyNamed('cacheValidity')))
                 .thenReturn(false);
+            when(_blePlatform.connectToDevice(any, any, any))
+                .thenAnswer((_) => Stream.fromIterable([1]));
 
             _result = _sut.connectToAdvertisingDevice(
               id: deviceId,
@@ -186,18 +190,14 @@ void main() {
               prescanDuration: const Duration(milliseconds: 10),
             );
           });
-          test('It emits failure', () {
-            const expectedUpdate = ConnectionStateUpdate(
-              deviceId: deviceId,
-              connectionState: DeviceConnectionState.disconnected,
-              failure: GenericFailure(
-                code: ConnectionError.failedToConnect,
-                message: "Device is not advertising",
-              ),
+          test(
+              'Should fall back to direct connect when device is not found after scanning',
+              () async {
+            await expectLater(
+              _result,
+              emitsInOrder(<ConnectionStateUpdate?>[updateForDevice]),
             );
-
-            expect(
-                _result, emitsInOrder(<ConnectionStateUpdate>[expectedUpdate]));
+            verify(_blePlatform.connectToDevice(any, any, any)).called(1);
           });
         });
       });
@@ -228,7 +228,9 @@ void main() {
             );
           });
 
-          test('It emits device update', () {
+          test(
+              'Should emit device update when device was discovered in a previous scan',
+              () {
             expect(_result,
                 emitsInOrder(<ConnectionStateUpdate?>[updateForDevice]));
           });
@@ -249,6 +251,9 @@ void main() {
                       cacheValidity: anyNamed('cacheValidity')))
                   .thenReturn(false);
 
+              when(_blePlatform.connectToDevice(any, any, any))
+                  .thenAnswer((_) => Stream.fromIterable([1]));
+
               _result = _sut.connectToAdvertisingDevice(
                 id: deviceId,
                 withServices: [uuidDeviceToScan],
@@ -256,18 +261,14 @@ void main() {
               );
             });
 
-            test('It emits failure', () {
-              const expectedUpdate = ConnectionStateUpdate(
-                deviceId: deviceId,
-                connectionState: DeviceConnectionState.disconnected,
-                failure: GenericFailure(
-                  code: ConnectionError.failedToConnect,
-                  message: "Device is not advertising",
-                ),
+            test(
+                'Should fall back to direct connect when device is not found after scanning',
+                () async {
+              await expectLater(
+                _result,
+                emitsInOrder(<ConnectionStateUpdate?>[updateForDevice]),
               );
-
-              expect(_result,
-                  emitsInOrder(<ConnectionStateUpdate>[expectedUpdate]));
+              verify(_blePlatform.connectToDevice(any, any, any)).called(1);
             });
           });
           group('And device found after scanning', () {
@@ -288,7 +289,8 @@ void main() {
               );
             });
 
-            test('It emits device update', () {
+            test('Should emit device update when device is found after scanning',
+                () {
               expect(_result,
                   emitsInOrder(<ConnectionStateUpdate?>[updateForDevice]));
             });

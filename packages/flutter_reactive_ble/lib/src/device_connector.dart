@@ -195,28 +195,11 @@ class DeviceConnectorImpl implements DeviceConnector {
     Map<Uuid, List<Uuid>>? servicesWithCharacteristicsToDiscover,
     Duration? connectionTimeout,
   ) {
-    if (_deviceIsDiscoveredRecently(
-      deviceId: id,
-      cacheValidity: _scanRegistryCacheValidityPeriod,
-    )) {
-      return connect(
-        id: id,
-        servicesWithCharacteristicsToDiscover:
-            servicesWithCharacteristicsToDiscover,
-        connectionTimeout: connectionTimeout,
-      );
-    } else {
-      return Stream.fromIterable(
-        [
-          ConnectionStateUpdate(
-            deviceId: id,
-            connectionState: DeviceConnectionState.disconnected,
-            failure: const GenericFailure(
-                code: ConnectionError.failedToConnect,
-                message: "Device is not advertising"),
-          ),
-        ],
-      );
-    }
+    return connect(
+      id: id,
+      servicesWithCharacteristicsToDiscover:
+          servicesWithCharacteristicsToDiscover,
+      connectionTimeout: connectionTimeout,
+    );
   }
 }
