@@ -1,3 +1,8 @@
+## 5.5.0+4
+
+* Faster iOS BLE status and state restoration (see `reactive_ble_mobile` 5.5.0+4)
+* When device was not seen in the scan registry, fall back to direct `connectToDevice` instead of failing with "Device is not advertising"
+
 ## 5.5.0+3
 
 * Bump version for 5.5.0+3 release (implementation updates in `reactive_ble_mobile`)
