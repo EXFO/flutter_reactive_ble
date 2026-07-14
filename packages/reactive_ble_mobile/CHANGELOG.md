@@ -1,4 +1,9 @@
-## 5.5.0+3
+## 5.5.0+4
+
+* iOS: report BLE status as soon as the status event sink attaches (remove fixed 1 s delay after startup/restoration)
+* iOS: run `Central` CoreBluetooth callbacks on a `userInitiated` dispatch queue for faster state restoration handling
+
+* ## 5.5.0+3
 
 * Android: Migration groovy to Kotlin
 
