@@ -23,13 +23,11 @@ final class PluginController {
         let services: [CBUUID]
     }
 
-    private static let autoReconnectDelayInSeconds: TimeInterval = 1.5
     private static let maxBufferedEvents = 1000
 
     private var central: Central?
 
     private let eventDispatchQueue = DispatchQueue(label: "com.signify.hue.flutterreactiveble.plugin.events")
-    private let reconnectDispatchQueue = DispatchQueue(label: "com.signify.hue.flutterreactiveble.plugin.reconnect")
     private let scanDispatchQueue = DispatchQueue(label: "com.signify.hue.flutterreactiveble.plugin.scan")
 
     private var connectedDeviceSink: EventSink?
@@ -95,11 +93,6 @@ final class PluginController {
         }
     }
 
-    private var autoReconnectTargets: [PeripheralID: ServicesWithCharacteristicsToDiscover] = [:]
-    private var reconnectWorkItems: [PeripheralID: DispatchWorkItem] = [:]
-
-    private var manualDisconnects = Set<PeripheralID>()
-
     init() {
         ensureCentralInitialized()
     }
@@ -157,7 +150,6 @@ final class PluginController {
 
                 switch change {
                 case .connected:
-                    context.handleConnectedDevice(peripheral.identifier)
                     // Wait for services & characteristics to be discovered
                     return
                 case .failedToConnect(let underlyingError), .disconnected(let underlyingError):
@@ -176,7 +168,6 @@ final class PluginController {
                 }
 
                 context.emitOrBuffer(event: message)
-                context.scheduleAutoReconnectIfNeeded(for: peripheral.identifier)
             },
             onRestoredState: papply(weak: self) { context, _, peripheralIds, scanServiceUuids in
                 if let scanServiceUuids = scanServiceUuids {
@@ -240,12 +231,6 @@ final class PluginController {
                 self.characteristicValueSink = nil
                 self.bufferedConnectedDeviceUpdates.removeAll()
                 self.bufferedCharacteristicValueUpdates.removeAll()
-            }
-            self.reconnectDispatchQueue.sync {
-                self.reconnectWorkItems.values.forEach { $0.cancel() }
-                self.reconnectWorkItems.removeAll()
-                self.autoReconnectTargets.removeAll()
-                self.manualDisconnects.removeAll()
             }
 
             completion(.success(nil))
@@ -321,7 +306,7 @@ final class PluginController {
 
         let timeout = args.timeoutInMs > 0 ? TimeInterval(args.timeoutInMs) / 1000 : nil
 
-        registerAutoReconnectIntent(
+        central.enableAutoReconnect(
             for: deviceID,
             discover: servicesWithCharacteristicsToDiscover
         )
@@ -369,7 +354,7 @@ final class PluginController {
 
         completion(.success(nil))
 
-        markManualDisconnect(for: deviceID)
+        central.disableAutoReconnect(for: deviceID)
         central.disconnect(from: deviceID)
     }
 
@@ -716,92 +701,6 @@ final class PluginController {
             return error.asFlutterError
         } else {
             return PluginError.unknown(error).asFlutterError
-        }
-    }
-
-    private func registerAutoReconnectIntent(
-        for peripheralID: PeripheralID,
-        discover servicesWithCharacteristicsToDiscover: ServicesWithCharacteristicsToDiscover
-    ) {
-        reconnectDispatchQueue.sync {
-            manualDisconnects.remove(peripheralID)
-            autoReconnectTargets[peripheralID] = servicesWithCharacteristicsToDiscover
-            reconnectWorkItems[peripheralID]?.cancel()
-            reconnectWorkItems[peripheralID] = nil
-        }
-    }
-
-    private func markManualDisconnect(for peripheralID: PeripheralID) {
-        reconnectDispatchQueue.sync {
-            manualDisconnects.insert(peripheralID)
-            autoReconnectTargets.removeValue(forKey: peripheralID)
-            reconnectWorkItems[peripheralID]?.cancel()
-            reconnectWorkItems[peripheralID] = nil
-        }
-    }
-
-    private func handleConnectedDevice(_ peripheralID: PeripheralID) {
-        reconnectDispatchQueue.sync {
-            reconnectWorkItems[peripheralID]?.cancel()
-            reconnectWorkItems[peripheralID] = nil
-            // A successful connection means a future disconnection should be treated
-            // as recoverable unless the user explicitly asked to disconnect.
-            manualDisconnects.remove(peripheralID)
-        }
-    }
-
-    private func scheduleAutoReconnectIfNeeded(for peripheralID: PeripheralID) {
-        let workItem: DispatchWorkItem? = reconnectDispatchQueue.sync {
-            guard !manualDisconnects.contains(peripheralID),
-                  autoReconnectTargets[peripheralID] != nil
-            else {
-                return nil
-            }
-
-            reconnectWorkItems[peripheralID]?.cancel()
-            let workItem = DispatchWorkItem { [weak self] in
-                self?.attemptAutoReconnect(for: peripheralID)
-            }
-            reconnectWorkItems[peripheralID] = workItem
-            return workItem
-        }
-
-        guard let workItem = workItem else {
-            return
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.autoReconnectDelayInSeconds, execute: workItem)
-    }
-
-    private func attemptAutoReconnect(for peripheralID: PeripheralID) {
-        let discover: ServicesWithCharacteristicsToDiscover? = reconnectDispatchQueue.sync {
-            reconnectWorkItems[peripheralID] = nil
-            guard !manualDisconnects.contains(peripheralID) else {
-                return nil
-            }
-            return autoReconnectTargets[peripheralID]
-        }
-
-        guard let central = central, let discover = discover else {
-            return
-        }
-
-        do {
-            try central.connect(
-                to: peripheralID,
-                discover: discover,
-                timeout: nil
-            )
-
-            let message = DeviceInfo.with {
-                $0.id = peripheralID.uuidString
-                $0.connectionState = encode(.connecting)
-            }
-            emitOrBuffer(event: message)
-        } catch {
-            // If the peripheral is temporarily unavailable, keep trying as long as
-            // the connection intent remains active and wasn't manually cancelled.
-            scheduleAutoReconnectIfNeeded(for: peripheralID)
         }
     }
 
