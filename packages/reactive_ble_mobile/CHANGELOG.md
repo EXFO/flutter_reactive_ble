@@ -1,9 +1,16 @@
+## 5.5.0+5
+
+* iOS: synchronize `Central` CoreBluetooth access on the dedicated queue (`performSync`) and run task timeouts on the same queue (fixes Timer / queue races)
+* iOS: move auto-reconnect into `Central` (remove plugin-level delayed reconnect on a separate queue)
+* Android: walk the `BleDisconnectedException` cause chain (and fall back to GATT status in the message) in `ErrorParser`
+* Android: map `discoverServices` failures to typed codes (`service_discovery_timeout`, `service_discovery_terminated`, `device_already_connected`, …)
+
 ## 5.5.0+4
 
 * iOS: report BLE status as soon as the status event sink attaches (remove fixed 1 s delay after startup/restoration)
 * iOS: run `Central` CoreBluetooth callbacks on a `userInitiated` dispatch queue for faster state restoration handling
 
-* ## 5.5.0+3
+## 5.5.0+3
 
 * Android: Migration groovy to Kotlin
 

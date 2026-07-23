@@ -1,3 +1,9 @@
+## 5.5.0+5
+
+* Harden iOS CoreBluetooth queue usage and auto-reconnect (see `reactive_ble_mobile` 5.5.0+5)
+* Improve Android disconnect / service-discovery error classification (see `reactive_ble_mobile` 5.5.0+5)
+* Add unit coverage for connection lifecycle and multiple matching characteristics
+
 ## 5.5.0+4
 
 * Faster iOS BLE status and state restoration (see `reactive_ble_mobile` 5.5.0+4)
