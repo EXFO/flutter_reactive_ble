@@ -191,6 +191,54 @@ void main() {
       test('Should return read bytes when readCharacteristic succeeds', () {
         expect(result, [1]);
       });
+
+      test('Should throw when multiple matching characteristics are discovered', () async {
+        clearInteractions(_deviceOperation);
+
+        when(_deviceOperation.getDiscoverServices(characteristic.deviceId)).thenAnswer((_) async => [
+              DiscoveredService(
+                serviceId: characteristic.serviceId,
+                serviceInstanceId: "11",
+                characteristicIds: [characteristic.characteristicId],
+                includedServices: [],
+                characteristics: [
+                  DiscoveredCharacteristic(
+                    characteristicId: characteristic.characteristicId,
+                    characteristicInstanceId: "101",
+                    serviceId: characteristic.serviceId,
+                    isReadable: true,
+                    isWritableWithResponse: true,
+                    isWritableWithoutResponse: true,
+                    isNotifiable: true,
+                    isIndicatable: true,
+                  ),
+                  DiscoveredCharacteristic(
+                    characteristicId: characteristic.characteristicId,
+                    characteristicInstanceId: "102",
+                    serviceId: characteristic.serviceId,
+                    isReadable: true,
+                    isWritableWithResponse: true,
+                    isWritableWithoutResponse: true,
+                    isNotifiable: true,
+                    isIndicatable: true,
+                  ),
+                ],
+              )
+            ]);
+
+        await expectLater(
+          () => _sut.readCharacteristic(characteristic),
+          throwsA(
+            isA<Exception>().having(
+              (error) => error.toString(),
+              'message',
+              contains('Multiple matching characteristics found'),
+            ),
+          ),
+        );
+
+        verifyNever(_deviceOperation.readCharacteristic(any));
+      });
     });
 
     group('Write characteristic with response', () {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
@@ -85,6 +86,100 @@ void main() {
             expect(_result,
                 emitsInOrder(<ConnectionStateUpdate?>[updateForDevice]));
           });
+        });
+      });
+
+      group('Connection lifecycle', () {
+        late StreamController<ConnectionStateUpdate> updatesController;
+
+        setUp(() {
+          updatesController = StreamController<ConnectionStateUpdate>.broadcast();
+          _connectionStateUpdateStream = updatesController.stream;
+          when(_blePlatform.connectToDevice(any, any, any)).thenAnswer(
+            (_) => Stream.fromIterable([1]),
+          );
+        });
+
+        tearDown(() async {
+          await updatesController.close();
+        });
+
+        test('Should disconnect when connection subscription is cancelled',
+            () async {
+          final subscription = _sut
+              .connect(
+                id: _deviceId,
+                servicesWithCharacteristicsToDiscover: _servicesToDiscover,
+                connectionTimeout: _connectionTimeout,
+              )
+              .listen((_) {});
+
+          await subscription.cancel();
+
+          verify(_blePlatform.disconnectDevice(_deviceId)).called(1);
+        });
+
+        test('Should emit disconnected update then complete the stream',
+            () async {
+          const connectingUpdate = ConnectionStateUpdate(
+            deviceId: _deviceId,
+            connectionState: DeviceConnectionState.connecting,
+            failure: null,
+          );
+          const disconnectedUpdate = ConnectionStateUpdate(
+            deviceId: _deviceId,
+            connectionState: DeviceConnectionState.disconnected,
+            failure: null,
+          );
+
+          final connectionStream = _sut.connect(
+            id: _deviceId,
+            servicesWithCharacteristicsToDiscover: _servicesToDiscover,
+            connectionTimeout: _connectionTimeout,
+          );
+
+          final collected = <ConnectionStateUpdate>[];
+          final done = Completer<void>();
+          final subscription = connectionStream.listen(
+            collected.add,
+            onDone: done.complete,
+          );
+
+          await pumpEventQueue();
+
+          updatesController
+            ..add(connectingUpdate)
+            ..add(disconnectedUpdate);
+
+          await done.future;
+          await subscription.cancel();
+
+          expect(collected, <ConnectionStateUpdate>[
+            connectingUpdate,
+            disconnectedUpdate,
+          ]);
+        });
+
+        test('Should call connectToDevice again after cancel and resubscribe',
+            () async {
+          final connectionStream = _sut.connect(
+            id: _deviceId,
+            servicesWithCharacteristicsToDiscover: _servicesToDiscover,
+            connectionTimeout: _connectionTimeout,
+          );
+
+          final firstSubscription = connectionStream.listen((_) {});
+          await firstSubscription.cancel();
+
+          final secondSubscription = connectionStream.listen((_) {});
+          await secondSubscription.cancel();
+
+          verify(_blePlatform.connectToDevice(
+            _deviceId,
+            _servicesToDiscover,
+            _connectionTimeout,
+          )).called(2);
+          verify(_blePlatform.disconnectDevice(_deviceId)).called(2);
         });
       });
     });
