@@ -27,8 +27,8 @@ class DeviceConnectorImpl implements DeviceConnector {
   const DeviceConnectorImpl({
     required ReactiveBlePlatform blePlatform,
     required bool Function(
-            {required String deviceId, required Duration cacheValidity})
-        deviceIsDiscoveredRecently,
+        {required String deviceId, required Duration cacheValidity})
+    deviceIsDiscoveredRecently,
     required DeviceScanner deviceScanner,
     required Duration delayAfterScanFailure,
   })  : _deviceIsDiscoveredRecently = deviceIsDiscoveredRecently,
@@ -38,8 +38,8 @@ class DeviceConnectorImpl implements DeviceConnector {
 
   final ReactiveBlePlatform _blePlatform;
   final bool Function({
-    required String deviceId,
-    required Duration cacheValidity,
+  required String deviceId,
+  required Duration cacheValidity,
   }) _deviceIsDiscoveredRecently;
   final DeviceScanner _deviceScanner;
   final Duration _delayAfterScanFailure;
@@ -49,7 +49,6 @@ class DeviceConnectorImpl implements DeviceConnector {
   @override
   Stream<ConnectionStateUpdate> get deviceConnectionStateUpdateStream =>
       _blePlatform.connectionUpdateStream;
-
   @override
   Stream<ConnectionStateUpdate> connect({
     required String id,
@@ -120,20 +119,20 @@ class DeviceConnectorImpl implements DeviceConnector {
     final scanTimeout = prescanDuration + const Duration(seconds: 1);
     return currentScan.future.timeout(scanTimeout).asStream().asyncExpand(
           (_) => _connectIfRecentlyDiscovered(
-            id,
-            servicesWithCharacteristicsToDiscover,
-            connectionTimeout,
-          ),
-        );
+        id,
+        servicesWithCharacteristicsToDiscover,
+        connectionTimeout,
+      ),
+    );
   }
 
   Stream<ConnectionStateUpdate> _prescanAndConnect(
-    String id,
-    Map<Uuid, List<Uuid>>? servicesWithCharacteristicsToDiscover,
-    Duration? connectionTimeout,
-    List<Uuid> withServices,
-    Duration prescanDuration,
-  ) async* {
+      String id,
+      Map<Uuid, List<Uuid>>? servicesWithCharacteristicsToDiscover,
+      Duration? connectionTimeout,
+      List<Uuid> withServices,
+      Duration prescanDuration,
+      ) async* {
     final isDiscovered = _deviceIsDiscoveredRecently(
       deviceId: id,
       cacheValidity: _scanRegistryCacheValidityPeriod,
@@ -142,7 +141,7 @@ class DeviceConnectorImpl implements DeviceConnector {
       yield* connect(
         id: id,
         servicesWithCharacteristicsToDiscover:
-            servicesWithCharacteristicsToDiscover,
+        servicesWithCharacteristicsToDiscover,
         connectionTimeout: connectionTimeout,
       );
       return;
@@ -189,7 +188,7 @@ class DeviceConnectorImpl implements DeviceConnector {
       yield* connect(
         id: id,
         servicesWithCharacteristicsToDiscover:
-            servicesWithCharacteristicsToDiscover,
+        servicesWithCharacteristicsToDiscover,
         connectionTimeout: connectionTimeout,
       );
       return;
@@ -205,10 +204,10 @@ class DeviceConnectorImpl implements DeviceConnector {
   }
 
   Stream<ConnectionStateUpdate> _connectIfRecentlyDiscovered(
-    String id,
-    Map<Uuid, List<Uuid>>? servicesWithCharacteristicsToDiscover,
-    Duration? connectionTimeout,
-  ) {
+      String id,
+      Map<Uuid, List<Uuid>>? servicesWithCharacteristicsToDiscover,
+      Duration? connectionTimeout,
+      ) {
     final isDiscovered = _deviceIsDiscoveredRecently(
       deviceId: id,
       cacheValidity: _scanRegistryCacheValidityPeriod,
@@ -217,7 +216,7 @@ class DeviceConnectorImpl implements DeviceConnector {
       return connect(
         id: id,
         servicesWithCharacteristicsToDiscover:
-            servicesWithCharacteristicsToDiscover,
+        servicesWithCharacteristicsToDiscover,
         connectionTimeout: connectionTimeout,
       );
     }
