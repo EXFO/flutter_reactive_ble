@@ -1,11 +1,12 @@
-#if os(iOS)
-  import Flutter
-#elseif os(macOS)
-  import FlutterMacOS
-#endif
+import CoreBluetooth
 
 import enum SwiftProtobuf.BinaryEncodingError
-import CoreBluetooth
+
+#if os(iOS)
+    import Flutter
+#elseif os(macOS)
+    import FlutterMacOS
+#endif
 
 public class ReactiveBlePlugin: NSObject, FlutterPlugin {
 
@@ -17,17 +18,31 @@ public class ReactiveBlePlugin: NSObject, FlutterPlugin {
         #elseif os(macOS)
             messenger = registrar.messenger
         #endif
-        let methodChannel = FlutterMethodChannel(name: "flutter_reactive_ble_method", binaryMessenger: messenger)
+        let methodChannel = FlutterMethodChannel(
+            name: "flutter_reactive_ble_method", binaryMessenger: messenger)
+        plugin.methodChannel = methodChannel
         registrar.addMethodCallDelegate(plugin, channel: methodChannel)
         FlutterEventChannel(name: "flutter_reactive_ble_status", binaryMessenger: messenger)
             .setStreamHandler(plugin.statusStreamHandler)
         FlutterEventChannel(name: "flutter_reactive_ble_scan", binaryMessenger: messenger)
             .setStreamHandler(plugin.scanStreamHandler)
-        FlutterEventChannel(name: "flutter_reactive_ble_connected_device", binaryMessenger: messenger)
-            .setStreamHandler(plugin.connectedDeviceStreamHandler)
+        FlutterEventChannel(
+            name: "flutter_reactive_ble_connected_device", binaryMessenger: messenger
+        )
+        .setStreamHandler(plugin.connectedDeviceStreamHandler)
         FlutterEventChannel(name: "flutter_reactive_ble_char_update", binaryMessenger: messenger)
             .setStreamHandler(plugin.characteristicValueUpdateStreamHandler)
+        // Required for `detachFromEngine` to be invoked when the engine is torn down.
+        registrar.publish(plugin)
     }
+
+    public func detachFromEngine(for registrar: FlutterPluginRegistrar) {
+        methodChannel?.setMethodCallHandler(nil)
+        methodChannel = nil
+        context.detach()
+    }
+
+    private var methodChannel: FlutterMethodChannel?
 
     var statusStreamHandler: StreamHandler<PluginController> {
         return StreamHandler(
@@ -37,7 +52,7 @@ public class ReactiveBlePlugin: NSObject, FlutterPlugin {
                 context.stateSink = sink
                 return nil
             },
-            onCancel: {context in
+            onCancel: { context in
                 context.stateSink = nil
                 return nil
             }
@@ -90,66 +105,102 @@ public class ReactiveBlePlugin: NSObject, FlutterPlugin {
     private let context = PluginController()
 
     private let methodHandler = MethodHandler<PluginController>([
-        AnyPlatformMethod(NullaryPlatformMethod(name: "initialize") { name, context, completion in
-            context.initialize(name: name, completion: completion)
-        }),
-        AnyPlatformMethod(NullaryPlatformMethod(name: "deinitialize") { name, context, completion in
-            context.deinitialize(name: name, completion: completion)
-        }),
-        AnyPlatformMethod(UnaryPlatformMethod(name: "scanForDevices") { (name, context, args: ScanForDevicesRequest, completion) in
-            context.scanForDevices(name: name, args: args, completion: completion)
-        }),
-        AnyPlatformMethod(UnaryPlatformMethod(name: "connectToDevice") { (name, context, args: ConnectToDeviceRequest, completion) in
-            context.connectToDevice(name: name, args: args, completion: completion)
-        }),
-        AnyPlatformMethod(UnaryPlatformMethod(name: "disconnectFromDevice") { (name, context, args: ConnectToDeviceRequest, completion) in
-            context.disconnectFromDevice(name: name, args: args, completion: completion)
-        }),
-        AnyPlatformMethod(UnaryPlatformMethod(name: "clearGattCache") { (name, context, args: ClearGattCacheRequest, completion) in
-            let result = ClearGattCacheInfo.with {
-                $0.failure = GenericFailure.with {
-                    $0.code = Int32(ClearGattCacheFailure.operationNotSupported.rawValue)
-                    $0.message = "Operation is not supported on iOS"
+        AnyPlatformMethod(
+            NullaryPlatformMethod(name: "initialize") { name, context, completion in
+                context.initialize(name: name, completion: completion)
+            }),
+        AnyPlatformMethod(
+            NullaryPlatformMethod(name: "deinitialize") { name, context, completion in
+                context.deinitialize(name: name, completion: completion)
+            }),
+        AnyPlatformMethod(
+            UnaryPlatformMethod(name: "scanForDevices") {
+                (name, context, args: ScanForDevicesRequest, completion) in
+                context.scanForDevices(name: name, args: args, completion: completion)
+            }),
+        AnyPlatformMethod(
+            UnaryPlatformMethod(name: "connectToDevice") {
+                (name, context, args: ConnectToDeviceRequest, completion) in
+                context.connectToDevice(name: name, args: args, completion: completion)
+            }),
+        AnyPlatformMethod(
+            UnaryPlatformMethod(name: "disconnectFromDevice") {
+                (name, context, args: ConnectToDeviceRequest, completion) in
+                context.disconnectFromDevice(name: name, args: args, completion: completion)
+            }),
+        AnyPlatformMethod(
+            UnaryPlatformMethod(name: "clearGattCache") {
+                (name, context, args: ClearGattCacheRequest, completion) in
+                let result = ClearGattCacheInfo.with {
+                    $0.failure = GenericFailure.with {
+                        $0.code = Int32(ClearGattCacheFailure.operationNotSupported.rawValue)
+                        $0.message = "Operation is not supported on iOS"
+                    }
                 }
-            }
-            completion(.success(result))
-        }),
-        AnyPlatformMethod(UnaryPlatformMethod(name: "requestConnectionPriority") { (name, context, args: ChangeConnectionPriorityRequest, completion) in
-            let result = ChangeConnectionPriorityInfo.with {
-                $0.failure = GenericFailure.with {
-                    $0.code = Int32(RequestConnectionPriorityFailure.operationNotSupported.rawValue)
-                    $0.message = "Operation is not supported on iOS"
+                completion(.success(result))
+            }),
+        AnyPlatformMethod(
+            UnaryPlatformMethod(name: "requestConnectionPriority") {
+                (name, context, args: ChangeConnectionPriorityRequest, completion) in
+                let result = ChangeConnectionPriorityInfo.with {
+                    $0.failure = GenericFailure.with {
+                        $0.code = Int32(
+                            RequestConnectionPriorityFailure.operationNotSupported.rawValue)
+                        $0.message = "Operation is not supported on iOS"
+                    }
                 }
-            }
-            completion(.success(result))
-        }),
-        AnyPlatformMethod(UnaryPlatformMethod(name: "discoverServices") { (name, context, args: DiscoverServicesRequest, completion) in
-            context.discoverServices(name: name, args: args, completion: completion)
-        }),
-        AnyPlatformMethod(UnaryPlatformMethod(name: "getDiscoveredServices") { (name, context, args: DiscoverServicesRequest, completion) in
-            context.getDiscoveredServices(name: name, args: args, completion: completion)
-        }),
-        AnyPlatformMethod(UnaryPlatformMethod(name: "readNotifications") { (name, context, args: NotifyCharacteristicRequest, completion) in
-            context.enableCharacteristicNotifications(name: name, args: args, completion: completion)
-        }),
-        AnyPlatformMethod(UnaryPlatformMethod(name: "stopNotifications") { (name, context, args: NotifyNoMoreCharacteristicRequest, completion) in
-            context.disableCharacteristicNotifications(name: name, args: args, completion: completion)
-        }),
-        AnyPlatformMethod(UnaryPlatformMethod(name: "readCharacteristic") { (name, context, args: ReadCharacteristicRequest, completion) in
-            context.readCharacteristic(name: name, args: args, completion: completion)
-        }),
-        AnyPlatformMethod(UnaryPlatformMethod(name: "writeCharacteristicWithResponse") { (name, context, args: WriteCharacteristicRequest, completion) in
-            context.writeCharacteristicWithResponse(name: name, args: args, completion: completion)
-        }),
-        AnyPlatformMethod(UnaryPlatformMethod(name: "writeCharacteristicWithoutResponse") { (name, context, args: WriteCharacteristicRequest, completion) in
-            context.writeCharacteristicWithoutResponse(name: name, args: args, completion: completion)
-        }),
-        AnyPlatformMethod(UnaryPlatformMethod(name: "negotiateMtuSize") { (name, context, args: NegotiateMtuRequest, completion) in
-            context.reportMaximumWriteValueLength(name: name, args: args, completion: completion)
-        }),
-        AnyPlatformMethod(UnaryPlatformMethod(name: "readRssi") { (name, context, args: ReadRssiRequest, completion) in
-            context.readRssi(name: name, args: args, completion: completion)
-        })
+                completion(.success(result))
+            }),
+        AnyPlatformMethod(
+            UnaryPlatformMethod(name: "discoverServices") {
+                (name, context, args: DiscoverServicesRequest, completion) in
+                context.discoverServices(name: name, args: args, completion: completion)
+            }),
+        AnyPlatformMethod(
+            UnaryPlatformMethod(name: "getDiscoveredServices") {
+                (name, context, args: DiscoverServicesRequest, completion) in
+                context.getDiscoveredServices(name: name, args: args, completion: completion)
+            }),
+        AnyPlatformMethod(
+            UnaryPlatformMethod(name: "readNotifications") {
+                (name, context, args: NotifyCharacteristicRequest, completion) in
+                context.enableCharacteristicNotifications(
+                    name: name, args: args, completion: completion)
+            }),
+        AnyPlatformMethod(
+            UnaryPlatformMethod(name: "stopNotifications") {
+                (name, context, args: NotifyNoMoreCharacteristicRequest, completion) in
+                context.disableCharacteristicNotifications(
+                    name: name, args: args, completion: completion)
+            }),
+        AnyPlatformMethod(
+            UnaryPlatformMethod(name: "readCharacteristic") {
+                (name, context, args: ReadCharacteristicRequest, completion) in
+                context.readCharacteristic(name: name, args: args, completion: completion)
+            }),
+        AnyPlatformMethod(
+            UnaryPlatformMethod(name: "writeCharacteristicWithResponse") {
+                (name, context, args: WriteCharacteristicRequest, completion) in
+                context.writeCharacteristicWithResponse(
+                    name: name, args: args, completion: completion)
+            }),
+        AnyPlatformMethod(
+            UnaryPlatformMethod(name: "writeCharacteristicWithoutResponse") {
+                (name, context, args: WriteCharacteristicRequest, completion) in
+                context.writeCharacteristicWithoutResponse(
+                    name: name, args: args, completion: completion)
+            }),
+        AnyPlatformMethod(
+            UnaryPlatformMethod(name: "negotiateMtuSize") {
+                (name, context, args: NegotiateMtuRequest, completion) in
+                context.reportMaximumWriteValueLength(
+                    name: name, args: args, completion: completion)
+            }),
+        AnyPlatformMethod(
+            UnaryPlatformMethod(name: "readRssi") {
+                (name, context, args: ReadRssiRequest, completion) in
+                context.readRssi(name: name, args: args, completion: completion)
+            }),
     ])
 
     public func handle(_ call: FlutterMethodCall, result completion: @escaping FlutterResult) {
