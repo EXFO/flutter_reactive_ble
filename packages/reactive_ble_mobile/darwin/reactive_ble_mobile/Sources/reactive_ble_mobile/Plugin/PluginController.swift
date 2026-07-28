@@ -1,17 +1,17 @@
-#if os(iOS)
-  import Flutter
-#elseif os(macOS)
-  import FlutterMacOS
-#endif
-
-import class CoreBluetooth.CBUUID
-import class CoreBluetooth.CBService
-import enum CoreBluetooth.CBManagerState
-import var CoreBluetooth.CBAdvertisementDataServiceDataKey
-import var CoreBluetooth.CBAdvertisementDataServiceUUIDsKey
-import var CoreBluetooth.CBAdvertisementDataManufacturerDataKey
 import var CoreBluetooth.CBAdvertisementDataIsConnectable
 import var CoreBluetooth.CBAdvertisementDataLocalNameKey
+import var CoreBluetooth.CBAdvertisementDataManufacturerDataKey
+import var CoreBluetooth.CBAdvertisementDataServiceDataKey
+import var CoreBluetooth.CBAdvertisementDataServiceUUIDsKey
+import enum CoreBluetooth.CBManagerState
+import class CoreBluetooth.CBService
+import class CoreBluetooth.CBUUID
+
+#if os(iOS)
+    import Flutter
+#elseif os(macOS)
+    import FlutterMacOS
+#endif
 
 final class PluginController {
     private enum StreamTarget {
@@ -27,8 +27,10 @@ final class PluginController {
 
     private var central: Central?
 
-    private let eventDispatchQueue = DispatchQueue(label: "com.signify.hue.flutterreactiveble.plugin.events")
-    private let scanDispatchQueue = DispatchQueue(label: "com.signify.hue.flutterreactiveble.plugin.scan")
+    private let eventDispatchQueue = DispatchQueue(
+        label: "com.signify.hue.flutterreactiveble.plugin.events")
+    private let scanDispatchQueue = DispatchQueue(
+        label: "com.signify.hue.flutterreactiveble.plugin.scan")
 
     private var connectedDeviceSink: EventSink?
     private var characteristicValueSink: EventSink?
@@ -98,9 +100,12 @@ final class PluginController {
     }
 
     func initialize(name: String, completion: @escaping PlatformMethodCompletionHandler) {
-        ensureCentralInitialized()
-
-        completion(.success(nil))
+        // Dart hot restart keeps this plugin alive while wiping Dart state.
+        // Drop any orphaned native connections before accepting new work.
+        detach { [weak self] in
+            self?.ensureCentralInitialized()
+            completion(.success(nil))
+        }
     }
 
     private func ensureCentralInitialized() {
@@ -116,11 +121,17 @@ final class PluginController {
                 guard let sink = context.scan?.sink
                 else { return }
 
-                let serviceData = advertisementData[CBAdvertisementDataServiceDataKey] as? ServiceData ?? [:]
-                let serviceUuids = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []
-                let isConnectable = (advertisementData[CBAdvertisementDataIsConnectable] as? NSNumber)?.boolValue
-                let manufacturerData = advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data ?? Data()
-                let name = advertisementData[CBAdvertisementDataLocalNameKey] as? String ?? peripheral.name ?? String()
+                let serviceData =
+                    advertisementData[CBAdvertisementDataServiceDataKey] as? ServiceData ?? [:]
+                let serviceUuids =
+                    advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []
+                let isConnectable =
+                    (advertisementData[CBAdvertisementDataIsConnectable] as? NSNumber)?.boolValue
+                let manufacturerData =
+                    advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data ?? Data()
+                let name =
+                    advertisementData[CBAdvertisementDataLocalNameKey] as? String ?? peripheral.name
+                    ?? String()
                 let deviceDiscoveryMessage = DeviceScanInfo.with {
                     $0.id = peripheral.identifier.uuidString
                     $0.name = name
@@ -128,18 +139,20 @@ final class PluginController {
                     $0.isConnectable = IsConnectable()
                     switch isConnectable {
                     case .none:
-                      $0.isConnectable.code = 0
+                        $0.isConnectable.code = 0
                     case .some(let isConnectable):
-                      $0.isConnectable.code = isConnectable ? 2 : 1
+                        $0.isConnectable.code = isConnectable ? 2 : 1
                     }
-                    $0.serviceData = serviceData
+                    $0.serviceData =
+                        serviceData
                         .map { entry in
                             ServiceDataEntry.with {
                                 $0.serviceUuid = Uuid.with { $0.data = entry.key.data }
                                 $0.data = entry.value
                             }
                         }
-                    $0.serviceUuids = serviceUuids.map { entry in Uuid.with { $0.data = entry.data }}
+                    $0.serviceUuids = serviceUuids.map { entry in Uuid.with { $0.data = entry.data }
+                    }
                     $0.manufacturerData = manufacturerData
                 }
 
@@ -174,21 +187,24 @@ final class PluginController {
                     context.scan = StreamingTask(parameters: .init(services: scanServiceUuids))
                 }
             },
-            onServicesWithCharacteristicsInitialDiscovery: papply(weak: self) { context, central, peripheral, errors in
+            onServicesWithCharacteristicsInitialDiscovery: papply(weak: self) {
+                context, central, peripheral, errors in
                 let message = DeviceInfo.with {
                     $0.id = peripheral.identifier.uuidString
                     $0.connectionState = encode(peripheral.state)
                     if !errors.isEmpty {
                         $0.failure = GenericFailure.with {
                             $0.code = Int32(ConnectionFailure.unknown.rawValue)
-                            $0.message = errors.map(String.init(describing:)).joined(separator: "\n")
+                            $0.message = errors.map(String.init(describing:)).joined(
+                                separator: "\n")
                         }
                     }
                 }
 
                 context.emitOrBuffer(event: message)
             },
-            onCharacteristicValueUpdate: papply(weak: self) { context, central, characteristic, value, error in
+            onCharacteristicValueUpdate: papply(weak: self) {
+                context, central, characteristic, value, error in
                 let message = CharacteristicValueInfo.with {
                     $0.characteristic = CharacteristicAddress.with {
                         $0.characteristicUuid = Uuid.with { $0.data = characteristic.id.data }
@@ -213,31 +229,56 @@ final class PluginController {
     }
 
     func deinitialize(name: String, completion: @escaping PlatformMethodCompletionHandler) {
-        guard let central = central
+        guard central != nil
         else {
             completion(.failure(PluginError.notInitialized.asFlutterError))
             return
         }
 
+        detach {
+            completion(.success(nil))
+        }
+    }
+
+    /// Tears down scans, sinks, and all active peripheral connections.
+    /// Used by method-channel `deinitialize` and by `detachFromEngine`.
+    func detach(completion: (() -> Void)? = nil) {
+        _ = stopScanning()
+        stateSink = nil
+
+        guard let central = central
+        else {
+            clearEventState()
+            completion?()
+            return
+        }
+
         central.shutdown { [weak self] in
             guard let self else {
+                completion?()
                 return
             }
 
             self.central = nil
             self.scan = nil
-            self.eventDispatchQueue.sync {
-                self.connectedDeviceSink = nil
-                self.characteristicValueSink = nil
-                self.bufferedConnectedDeviceUpdates.removeAll()
-                self.bufferedCharacteristicValueUpdates.removeAll()
-            }
-
-            completion(.success(nil))
+            self.clearEventState()
+            completion?()
         }
     }
 
-    func scanForDevices(name: String, args: ScanForDevicesRequest, completion: @escaping PlatformMethodCompletionHandler) {
+    private func clearEventState() {
+        eventDispatchQueue.sync {
+            connectedDeviceSink = nil
+            characteristicValueSink = nil
+            bufferedConnectedDeviceUpdates.removeAll()
+            bufferedCharacteristicValueUpdates.removeAll()
+        }
+    }
+
+    func scanForDevices(
+        name: String, args: ScanForDevicesRequest,
+        completion: @escaping PlatformMethodCompletionHandler
+    ) {
         guard let central = central
         else {
             completion(.failure(PluginError.notInitialized.asFlutterError))
@@ -250,7 +291,8 @@ final class PluginController {
             central.stopScan()
         }
 
-        scan = StreamingTask(parameters: .init(services: args.serviceUuids.map({ uuid in CBUUID(data: uuid.data) })))
+        scan = StreamingTask(
+            parameters: .init(services: args.serviceUuids.map({ uuid in CBUUID(data: uuid.data) })))
 
         completion(.success(nil))
     }
@@ -260,7 +302,11 @@ final class PluginController {
         else { return PluginError.notInitialized.asFlutterError }
 
         guard let scan = scan
-        else { return PluginError.internalInconcictency(details: "a scanning task has not been initialized yet, but a client has subscribed").asFlutterError }
+        else {
+            return PluginError.internalInconcictency(
+                details: "a scanning task has not been initialized yet, but a client has subscribed"
+            ).asFlutterError
+        }
 
         self.scan = scan.with(sink: sink)
 
@@ -276,7 +322,10 @@ final class PluginController {
         return nil
     }
 
-    func connectToDevice(name: String, args: ConnectToDeviceRequest, completion: @escaping PlatformMethodCompletionHandler) {
+    func connectToDevice(
+        name: String, args: ConnectToDeviceRequest,
+        completion: @escaping PlatformMethodCompletionHandler
+    ) {
         guard let central = central
         else {
             completion(.failure(PluginError.notInitialized.asFlutterError))
@@ -285,21 +334,26 @@ final class PluginController {
 
         guard let deviceID = UUID(uuidString: args.deviceID)
         else {
-            completion(.failure(PluginError.invalidMethodCall(method: name, details: "\"deviceID\" is invalid").asFlutterError))
+            completion(
+                .failure(
+                    PluginError.invalidMethodCall(method: name, details: "\"deviceID\" is invalid")
+                        .asFlutterError))
             return
         }
 
         let servicesWithCharacteristicsToDiscover: ServicesWithCharacteristicsToDiscover
         if args.hasServicesWithCharacteristicsToDiscover {
             let items = args.servicesWithCharacteristicsToDiscover.items.reduce(
-                into: [ServiceID: [CharacteristicID]](), { dict, item in
+                into: [ServiceID: [CharacteristicID]](),
+                { dict, item in
                     let serviceID = CBUUID(data: item.serviceID.data)
                     let characteristicIDs = item.characteristics.map { CBUUID(data: $0.data) }
 
                     dict[serviceID] = characteristicIDs
                 }
             )
-            servicesWithCharacteristicsToDiscover = ServicesWithCharacteristicsToDiscover.some(items.mapValues(CharacteristicsToDiscover.some))
+            servicesWithCharacteristicsToDiscover = ServicesWithCharacteristicsToDiscover.some(
+                items.mapValues(CharacteristicsToDiscover.some))
         } else {
             servicesWithCharacteristicsToDiscover = .all
         }
@@ -334,7 +388,10 @@ final class PluginController {
         }
     }
 
-    func disconnectFromDevice(name: String, args: ConnectToDeviceRequest, completion: @escaping PlatformMethodCompletionHandler) {
+    func disconnectFromDevice(
+        name: String, args: ConnectToDeviceRequest,
+        completion: @escaping PlatformMethodCompletionHandler
+    ) {
         guard let central = central
         else {
             completion(.failure(PluginError.notInitialized.asFlutterError))
@@ -343,7 +400,10 @@ final class PluginController {
 
         guard let deviceID = UUID(uuidString: args.deviceID)
         else {
-            completion(.failure(PluginError.invalidMethodCall(method: name, details: "\"deviceID\" is invalid").asFlutterError))
+            completion(
+                .failure(
+                    PluginError.invalidMethodCall(method: name, details: "\"deviceID\" is invalid")
+                        .asFlutterError))
             return
         }
 
@@ -352,7 +412,10 @@ final class PluginController {
         central.disconnect(from: deviceID)
     }
 
-    func discoverServices(name: String, args: DiscoverServicesRequest, completion: @escaping PlatformMethodCompletionHandler) {
+    func discoverServices(
+        name: String, args: DiscoverServicesRequest,
+        completion: @escaping PlatformMethodCompletionHandler
+    ) {
         guard let central = central
         else {
             completion(.failure(PluginError.notInitialized.asFlutterError))
@@ -361,7 +424,10 @@ final class PluginController {
 
         guard let deviceID = UUID(uuidString: args.deviceID)
         else {
-            completion(.failure(PluginError.invalidMethodCall(method: name, details: "\"deviceID\" is invalid").asFlutterError))
+            completion(
+                .failure(
+                    PluginError.invalidMethodCall(method: name, details: "\"deviceID\" is invalid")
+                        .asFlutterError))
             return
         }
 
@@ -374,14 +440,15 @@ final class PluginController {
                 }
                 $0.characteristics = (service.characteristics ?? []).map { characteristic in
                     DiscoveredCharacteristic.with {
-                        $0.characteristicID = Uuid.with {$0.data = characteristic.uuid.data}
+                        $0.characteristicID = Uuid.with { $0.data = characteristic.uuid.data }
                         $0.characteristicInstanceID = characteristic.instanceId?.description ?? ""
                         if let serviceUuidData = characteristic.service?.uuid.data {
-                            $0.serviceID = Uuid.with {$0.data = serviceUuidData}
+                            $0.serviceID = Uuid.with { $0.data = serviceUuidData }
                         }
                         $0.isReadable = characteristic.properties.contains(.read)
                         $0.isWritableWithResponse = characteristic.properties.contains(.write)
-                        $0.isWritableWithoutResponse = characteristic.properties.contains(.writeWithoutResponse)
+                        $0.isWritableWithoutResponse = characteristic.properties.contains(
+                            .writeWithoutResponse)
                         $0.isNotifiable = characteristic.properties.contains(.notify)
                         $0.isIndicatable = characteristic.properties.contains(.indicate)
                     }
@@ -396,10 +463,12 @@ final class PluginController {
                 for: deviceID,
                 discover: .all,
                 completion: { central, peripheral, errors in
-                    completion(.success(DiscoverServicesInfo.with {
-                        $0.deviceID = deviceID.uuidString
-                        $0.services = (peripheral.services ?? []).map(makeDiscoveredService)
-                    }))
+                    completion(
+                        .success(
+                            DiscoverServicesInfo.with {
+                                $0.deviceID = deviceID.uuidString
+                                $0.services = (peripheral.services ?? []).map(makeDiscoveredService)
+                            }))
                 }
             )
         } catch {
@@ -407,7 +476,10 @@ final class PluginController {
         }
     }
 
-    func getDiscoveredServices(name: String, args: DiscoverServicesRequest, completion: @escaping PlatformMethodCompletionHandler) {
+    func getDiscoveredServices(
+        name: String, args: DiscoverServicesRequest,
+        completion: @escaping PlatformMethodCompletionHandler
+    ) {
         guard let central = central
         else {
             completion(.failure(PluginError.notInitialized.asFlutterError))
@@ -416,7 +488,10 @@ final class PluginController {
 
         guard let deviceID = UUID(uuidString: args.deviceID)
         else {
-            completion(.failure(PluginError.invalidMethodCall(method: name, details: "\"deviceID\" is invalid").asFlutterError))
+            completion(
+                .failure(
+                    PluginError.invalidMethodCall(method: name, details: "\"deviceID\" is invalid")
+                        .asFlutterError))
             return
         }
 
@@ -429,14 +504,15 @@ final class PluginController {
                 }
                 $0.characteristics = (service.characteristics ?? []).map { characteristic in
                     DiscoveredCharacteristic.with {
-                        $0.characteristicID = Uuid.with {$0.data = characteristic.uuid.data}
+                        $0.characteristicID = Uuid.with { $0.data = characteristic.uuid.data }
                         $0.characteristicInstanceID = characteristic.instanceId?.description ?? ""
                         if let serviceUuidData = characteristic.service?.uuid.data {
-                            $0.serviceID = Uuid.with {$0.data = serviceUuidData}
+                            $0.serviceID = Uuid.with { $0.data = serviceUuidData }
                         }
                         $0.isReadable = characteristic.properties.contains(.read)
                         $0.isWritableWithResponse = characteristic.properties.contains(.write)
-                        $0.isWritableWithoutResponse = characteristic.properties.contains(.writeWithoutResponse)
+                        $0.isWritableWithoutResponse = characteristic.properties.contains(
+                            .writeWithoutResponse)
                         $0.isNotifiable = characteristic.properties.contains(.notify)
                         $0.isIndicatable = characteristic.properties.contains(.indicate)
                     }
@@ -448,7 +524,9 @@ final class PluginController {
 
         do {
             let peripheral = try central.peripheral(for: deviceID)
-            completion(.success(DiscoverServicesInfo.with {
+            completion(
+                .success(
+                    DiscoverServicesInfo.with {
                         $0.deviceID = deviceID.uuidString
                         $0.services = (peripheral.services ?? []).map(makeDiscoveredService)
                     }))
@@ -458,7 +536,10 @@ final class PluginController {
         }
     }
 
-    func enableCharacteristicNotifications(name: String, args: NotifyCharacteristicRequest, completion: @escaping PlatformMethodCompletionHandler) {
+    func enableCharacteristicNotifications(
+        name: String, args: NotifyCharacteristicRequest,
+        completion: @escaping PlatformMethodCompletionHandler
+    ) {
         guard let central = central
         else {
             completion(.failure(PluginError.notInitialized.asFlutterError))
@@ -467,24 +548,34 @@ final class PluginController {
 
         guard let characteristic = CharacteristicInstanceIDFactory().make(from: args.characteristic)
         else {
-            completion(.failure(PluginError.invalidMethodCall(method: name, details: "characteristic, service, and peripheral IDs are required").asFlutterError))
+            completion(
+                .failure(
+                    PluginError.invalidMethodCall(
+                        method: name,
+                        details: "characteristic, service, and peripheral IDs are required"
+                    ).asFlutterError))
             return
         }
 
         do {
-            try central.turnNotifications(.on, for: characteristic, completion: { _, error in
-                if let error = error {
-                    completion(.failure(PluginError.unknown(error).asFlutterError))
-                } else {
-                    completion(.success(nil))
-                }
-            })
+            try central.turnNotifications(
+                .on, for: characteristic,
+                completion: { _, error in
+                    if let error = error {
+                        completion(.failure(PluginError.unknown(error).asFlutterError))
+                    } else {
+                        completion(.success(nil))
+                    }
+                })
         } catch {
             completion(.failure(PluginError.unknown(error).asFlutterError))
         }
     }
 
-    func disableCharacteristicNotifications(name: String, args: NotifyNoMoreCharacteristicRequest, completion: @escaping PlatformMethodCompletionHandler) {
+    func disableCharacteristicNotifications(
+        name: String, args: NotifyNoMoreCharacteristicRequest,
+        completion: @escaping PlatformMethodCompletionHandler
+    ) {
         guard let central = central
         else {
             completion(.failure(PluginError.notInitialized.asFlutterError))
@@ -493,24 +584,34 @@ final class PluginController {
 
         guard let characteristic = CharacteristicInstanceIDFactory().make(from: args.characteristic)
         else {
-            completion(.failure(PluginError.invalidMethodCall(method: name, details: "characteristic, service, and peripheral IDs are required").asFlutterError))
+            completion(
+                .failure(
+                    PluginError.invalidMethodCall(
+                        method: name,
+                        details: "characteristic, service, and peripheral IDs are required"
+                    ).asFlutterError))
             return
         }
 
         do {
-            try central.turnNotifications(.off, for: characteristic, completion: { _, error in
-                if let error = error {
-                    completion(.failure(PluginError.unknown(error).asFlutterError))
-                } else {
-                    completion(.success(nil))
-                }
-            })
+            try central.turnNotifications(
+                .off, for: characteristic,
+                completion: { _, error in
+                    if let error = error {
+                        completion(.failure(PluginError.unknown(error).asFlutterError))
+                    } else {
+                        completion(.success(nil))
+                    }
+                })
         } catch {
             completion(.failure(PluginError.unknown(error).asFlutterError))
         }
     }
 
-    func readCharacteristic(name: String, args: ReadCharacteristicRequest, completion: @escaping PlatformMethodCompletionHandler) {
+    func readCharacteristic(
+        name: String, args: ReadCharacteristicRequest,
+        completion: @escaping PlatformMethodCompletionHandler
+    ) {
         guard let central = central
         else {
             completion(.failure(PluginError.notInitialized.asFlutterError))
@@ -519,7 +620,12 @@ final class PluginController {
 
         guard let characteristic = CharacteristicInstanceIDFactory().make(from: args.characteristic)
         else {
-            completion(.failure(PluginError.invalidMethodCall(method: name, details: "characteristic, service, and peripheral IDs are required").asFlutterError))
+            completion(
+                .failure(
+                    PluginError.invalidMethodCall(
+                        method: name,
+                        details: "characteristic, service, and peripheral IDs are required"
+                    ).asFlutterError))
             return
         }
 
@@ -542,7 +648,10 @@ final class PluginController {
         }
     }
 
-    func writeCharacteristicWithResponse(name: String, args: WriteCharacteristicRequest, completion: @escaping PlatformMethodCompletionHandler) {
+    func writeCharacteristicWithResponse(
+        name: String, args: WriteCharacteristicRequest,
+        completion: @escaping PlatformMethodCompletionHandler
+    ) {
         guard let central = central
         else {
             completion(.failure(PluginError.notInitialized.asFlutterError))
@@ -551,7 +660,12 @@ final class PluginController {
 
         guard let characteristic = CharacteristicInstanceIDFactory().make(from: args.characteristic)
         else {
-            completion(.failure(PluginError.invalidMethodCall(method: name, details: "characteristic, service, and peripheral IDs are required").asFlutterError))
+            completion(
+                .failure(
+                    PluginError.invalidMethodCall(
+                        method: name,
+                        details: "characteristic, service, and peripheral IDs are required"
+                    ).asFlutterError))
             return
         }
 
@@ -586,7 +700,10 @@ final class PluginController {
         }
     }
 
-    func writeCharacteristicWithoutResponse(name: String, args: WriteCharacteristicRequest, completion: @escaping PlatformMethodCompletionHandler) {
+    func writeCharacteristicWithoutResponse(
+        name: String, args: WriteCharacteristicRequest,
+        completion: @escaping PlatformMethodCompletionHandler
+    ) {
         guard let central = central
         else {
             completion(.failure(PluginError.notInitialized.asFlutterError))
@@ -595,7 +712,12 @@ final class PluginController {
 
         guard let characteristic = CharacteristicInstanceIDFactory().make(from: args.characteristic)
         else {
-            completion(.failure(PluginError.invalidMethodCall(method: name, details: "characteristic, service, and peripheral IDs are required").asFlutterError))
+            completion(
+                .failure(
+                    PluginError.invalidMethodCall(
+                        method: name,
+                        details: "characteristic, service, and peripheral IDs are required"
+                    ).asFlutterError))
             return
         }
 
@@ -621,7 +743,10 @@ final class PluginController {
         completion(.success(result))
     }
 
-    func reportMaximumWriteValueLength(name: String, args: NegotiateMtuRequest, completion: @escaping PlatformMethodCompletionHandler) {
+    func reportMaximumWriteValueLength(
+        name: String, args: NegotiateMtuRequest,
+        completion: @escaping PlatformMethodCompletionHandler
+    ) {
         guard let central = central
         else {
             completion(.failure(PluginError.notInitialized.asFlutterError))
@@ -630,7 +755,11 @@ final class PluginController {
 
         guard let peripheralID = UUID(uuidString: args.deviceID)
         else {
-            completion(.failure(PluginError.invalidMethodCall(method: name, details: "peripheral ID is required").asFlutterError))
+            completion(
+                .failure(
+                    PluginError.invalidMethodCall(
+                        method: name, details: "peripheral ID is required"
+                    ).asFlutterError))
             return
         }
 
@@ -654,7 +783,9 @@ final class PluginController {
         completion(.success(result))
     }
 
-    func readRssi(name: String, args: ReadRssiRequest, completion: @escaping PlatformMethodCompletionHandler) {
+    func readRssi(
+        name: String, args: ReadRssiRequest, completion: @escaping PlatformMethodCompletionHandler
+    ) {
         guard let central = central
         else {
             completion(.failure(PluginError.notInitialized.asFlutterError))
@@ -663,7 +794,11 @@ final class PluginController {
 
         guard let peripheralID = UUID(uuidString: args.deviceID)
         else {
-            completion(.failure(PluginError.invalidMethodCall(method: name, details: "peripheral ID is required").asFlutterError))
+            completion(
+                .failure(
+                    PluginError.invalidMethodCall(
+                        method: name, details: "peripheral ID is required"
+                    ).asFlutterError))
             return
         }
 
@@ -775,8 +910,8 @@ final class PluginController {
             return
         }
         print(
-            "reactive_ble_mobile: dropped \(overflow) oldest buffered \(streamName) event(s) " +
-                "(limit \(Self.maxBufferedEvents))"
+            "reactive_ble_mobile: dropped \(overflow) oldest buffered \(streamName) event(s) "
+                + "(limit \(Self.maxBufferedEvents))"
         )
         buffer.removeFirst(overflow)
     }
