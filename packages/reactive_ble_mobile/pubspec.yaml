@@ -2,6 +2,7 @@ name: reactive_ble_mobile
 description: Official Android and iOS implementation for the flutter_reactive_ble plugin.
 version: 5.5.0+5
 homepage: https://github.com/PhilipsHue/flutter_reactive_ble
+publish_to: none
 
 environment:
   sdk: ^3.11.0
@@ -38,4 +39,4 @@ flutter:
         sharedDarwinSource: true
       macos:
         pluginClass: ReactiveBlePlugin
-        sharedDarwinSource: true  
+        sharedDarwinSource: true

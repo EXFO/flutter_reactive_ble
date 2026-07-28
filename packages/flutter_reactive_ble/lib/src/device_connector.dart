@@ -194,12 +194,11 @@ class DeviceConnectorImpl implements DeviceConnector {
     String id,
     Map<Uuid, List<Uuid>>? servicesWithCharacteristicsToDiscover,
     Duration? connectionTimeout,
-  ) {
-    return connect(
-      id: id,
-      servicesWithCharacteristicsToDiscover:
-          servicesWithCharacteristicsToDiscover,
-      connectionTimeout: connectionTimeout,
-    );
-  }
+  ) =>
+      connect(
+        id: id,
+        servicesWithCharacteristicsToDiscover:
+            servicesWithCharacteristicsToDiscover,
+        connectionTimeout: connectionTimeout,
+      );
 }
