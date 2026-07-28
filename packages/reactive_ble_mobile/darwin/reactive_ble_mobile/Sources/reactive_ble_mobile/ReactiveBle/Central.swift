@@ -39,8 +39,6 @@ final class Central {
     private lazy var characteristicNotifyRegistry = PeripheralTaskRegistry<CharacteristicNotifyTaskController>(timeoutQueue: queueIdentifier)
     private lazy var characteristicWriteRegistry = PeripheralTaskRegistry<CharacteristicWriteTaskController>(timeoutQueue: queueIdentifier)
     private lazy var readRssiRegistry = PeripheralTaskRegistry<ReadRssiTaskController>(timeoutQueue: queueIdentifier)
-    private var reconnectIntents = [PeripheralID: ServicesWithCharacteristicsToDiscover]()
-    private var manualDisconnects = Set<PeripheralID>()
     private static let restoreIdentifier = "com.signifiy.hue.flutterreactiveble.central.restoration"
 
     init(
@@ -62,10 +60,6 @@ final class Central {
                         central.eject(peripheral, error: error)
                         onConnectionChange(central, peripheral, .disconnected(error))
                     }
-                } else {
-                    central.reconnectIntents.keys.forEach { peripheralID in
-                        central.tryReconnectIfNeeded(for: peripheralID)
-                    }
                 }
                 onStateChange(central, state)
             },
@@ -78,11 +72,9 @@ final class Central {
 
                 switch change {
                 case .connected:
-                    central.manualDisconnects.remove(peripheral.identifier)
                     break
                 case .failedToConnect(let error), .disconnected(let error):
                     central.eject(peripheral, error: error ?? PluginError.connectionLost)
-                    central.tryReconnectIfNeeded(for: peripheral.identifier)
                 }
 
                 onConnectionChange(central, peripheral, change)
@@ -231,20 +223,6 @@ final class Central {
             else { return }
 
             centralManager.cancelPeripheralConnection(peripheral)
-        }
-    }
-
-    func enableAutoReconnect(for peripheralID: PeripheralID, discover servicesWithCharacteristicsToDiscover: ServicesWithCharacteristicsToDiscover) {
-        performSync {
-            reconnectIntents[peripheralID] = servicesWithCharacteristicsToDiscover
-            manualDisconnects.remove(peripheralID)
-        }
-    }
-
-    func disableAutoReconnect(for peripheralID: PeripheralID) {
-        performSync {
-            reconnectIntents.removeValue(forKey: peripheralID)
-            manualDisconnects.insert(peripheralID)
         }
     }
 
@@ -421,8 +399,6 @@ final class Central {
             self.characteristicNotifyRegistry.clearAll()
             self.characteristicWriteRegistry.clearAll()
             self.readRssiRegistry.clearAll()
-            self.reconnectIntents.removeAll()
-            self.manualDisconnects.removeAll()
             self.activePeripherals.values.forEach(self.centralManager.cancelPeripheralConnection)
             self.activePeripherals.removeAll()
 
@@ -456,30 +432,7 @@ final class Central {
         peripherals.forEach { peripheral in
             peripheral.delegate = peripheralDelegate
             activePeripherals[peripheral.identifier] = peripheral
-            tryReconnectIfNeeded(for: peripheral.identifier)
         }
-    }
-
-    private func tryReconnectIfNeeded(for peripheralID: PeripheralID) {
-        guard centralManager.state == .poweredOn,
-              !manualDisconnects.contains(peripheralID),
-              let servicesWithCharacteristicsToDiscover = reconnectIntents[peripheralID]
-        else {
-            return
-        }
-
-        guard let peripheral = try? resolve(known: peripheralID),
-              peripheral.state != .connected,
-              peripheral.state != .connecting
-        else {
-            return
-        }
-
-        try? connect(
-            to: peripheralID,
-            discover: servicesWithCharacteristicsToDiscover,
-            timeout: nil
-        )
     }
 
     private func handleRestoredScan(_ restoredScanServices: [ServiceID]?) {
