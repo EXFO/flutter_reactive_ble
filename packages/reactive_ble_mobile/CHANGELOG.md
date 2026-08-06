@@ -1,3 +1,7 @@
+## 5.5.0+6
+
+* iOS: restore a 1.5 s delay before native auto-reconnect after disconnect (immediate reconnect in 5.5.0+5 could race with Flutter and create duplicate connections)
+
 ## 5.5.0+5
 
 * iOS: synchronize `Central` CoreBluetooth access on the dedicated queue (`performSync`) and run task timeouts on the same queue (fixes Timer / queue races)

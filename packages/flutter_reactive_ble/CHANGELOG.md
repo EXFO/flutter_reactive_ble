@@ -1,3 +1,7 @@
+## 5.5.0+6
+
+* Fix iOS duplicate connections after reconnect by delaying native auto-reconnect (see `reactive_ble_mobile` 5.5.0+6)
+
 ## 5.5.0+5
 
 * Harden iOS CoreBluetooth queue usage and auto-reconnect (see `reactive_ble_mobile` 5.5.0+5)
