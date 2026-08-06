@@ -41,6 +41,8 @@ final class Central {
     private lazy var readRssiRegistry = PeripheralTaskRegistry<ReadRssiTaskController>(timeoutQueue: queueIdentifier)
     private var reconnectIntents = [PeripheralID: ServicesWithCharacteristicsToDiscover]()
     private var manualDisconnects = Set<PeripheralID>()
+    private var reconnectWorkItems = [PeripheralID: DispatchWorkItem]()
+    private static let autoReconnectDelayInSeconds: TimeInterval = 1.5
     private static let restoreIdentifier = "com.signifiy.hue.flutterreactiveble.central.restoration"
 
     init(
@@ -64,7 +66,7 @@ final class Central {
                     }
                 } else {
                     central.reconnectIntents.keys.forEach { peripheralID in
-                        central.tryReconnectIfNeeded(for: peripheralID)
+                        central.scheduleAutoReconnectIfNeeded(for: peripheralID)
                     }
                 }
                 onStateChange(central, state)
@@ -78,11 +80,12 @@ final class Central {
 
                 switch change {
                 case .connected:
+                    central.cancelPendingReconnect(for: peripheral.identifier)
                     central.manualDisconnects.remove(peripheral.identifier)
                     break
                 case .failedToConnect(let error), .disconnected(let error):
                     central.eject(peripheral, error: error ?? PluginError.connectionLost)
-                    central.tryReconnectIfNeeded(for: peripheral.identifier)
+                    central.scheduleAutoReconnectIfNeeded(for: peripheral.identifier)
                 }
 
                 onConnectionChange(central, peripheral, change)
@@ -238,6 +241,7 @@ final class Central {
         performSync {
             reconnectIntents[peripheralID] = servicesWithCharacteristicsToDiscover
             manualDisconnects.remove(peripheralID)
+            cancelPendingReconnectLocked(for: peripheralID)
         }
     }
 
@@ -245,6 +249,7 @@ final class Central {
         performSync {
             reconnectIntents.removeValue(forKey: peripheralID)
             manualDisconnects.insert(peripheralID)
+            cancelPendingReconnectLocked(for: peripheralID)
         }
     }
 
@@ -421,6 +426,8 @@ final class Central {
             self.characteristicNotifyRegistry.clearAll()
             self.characteristicWriteRegistry.clearAll()
             self.readRssiRegistry.clearAll()
+            self.reconnectWorkItems.values.forEach { $0.cancel() }
+            self.reconnectWorkItems.removeAll()
             self.reconnectIntents.removeAll()
             self.manualDisconnects.removeAll()
             self.activePeripherals.values.forEach(self.centralManager.cancelPeripheralConnection)
@@ -460,30 +467,72 @@ final class Central {
         peripherals.forEach { peripheral in
             peripheral.delegate = peripheralDelegate
             activePeripherals[peripheral.identifier] = peripheral
-            tryReconnectIfNeeded(for: peripheral.identifier)
+            scheduleAutoReconnectIfNeeded(for: peripheral.identifier)
         }
     }
 
-    private func tryReconnectIfNeeded(for peripheralID: PeripheralID) {
-        guard centralManager.state == .poweredOn,
-              !manualDisconnects.contains(peripheralID),
-              let servicesWithCharacteristicsToDiscover = reconnectIntents[peripheralID]
-        else {
-            return
+    private func cancelPendingReconnect(for peripheralID: PeripheralID) {
+        performSync {
+            cancelPendingReconnectLocked(for: peripheralID)
         }
+    }
 
-        guard let peripheral = try? resolve(known: peripheralID),
-              peripheral.state != .connected,
-              peripheral.state != .connecting
-        else {
-            return
+    private func cancelPendingReconnectLocked(for peripheralID: PeripheralID) {
+        reconnectWorkItems[peripheralID]?.cancel()
+        reconnectWorkItems[peripheralID] = nil
+    }
+
+    /// Schedules a reconnect after [autoReconnectDelayInSeconds] so Flutter can
+    /// process disconnect and cancel the connection intent first when appropriate.
+    private func scheduleAutoReconnectIfNeeded(for peripheralID: PeripheralID) {
+        performSync {
+            guard !manualDisconnects.contains(peripheralID),
+                  reconnectIntents[peripheralID] != nil
+            else {
+                return
+            }
+
+            cancelPendingReconnectLocked(for: peripheralID)
+            let workItem = DispatchWorkItem { [weak self] in
+                self?.attemptAutoReconnect(for: peripheralID)
+            }
+            reconnectWorkItems[peripheralID] = workItem
+            queueIdentifier.asyncAfter(
+                deadline: .now() + Self.autoReconnectDelayInSeconds,
+                execute: workItem
+            )
         }
+    }
 
-        try? connect(
-            to: peripheralID,
-            discover: servicesWithCharacteristicsToDiscover,
-            timeout: nil
-        )
+    private func attemptAutoReconnect(for peripheralID: PeripheralID) {
+        performSync {
+            reconnectWorkItems[peripheralID] = nil
+
+            guard centralManager.state == .poweredOn,
+                  !manualDisconnects.contains(peripheralID),
+                  let servicesWithCharacteristicsToDiscover = reconnectIntents[peripheralID]
+            else {
+                return
+            }
+
+            guard let peripheral = try? resolve(known: peripheralID),
+                  peripheral.state != .connected,
+                  peripheral.state != .connecting
+            else {
+                return
+            }
+
+            do {
+                try connect(
+                    to: peripheralID,
+                    discover: servicesWithCharacteristicsToDiscover,
+                    timeout: nil
+                )
+            } catch {
+                // Keep trying while the connection intent remains active.
+                scheduleAutoReconnectIfNeeded(for: peripheralID)
+            }
+        }
     }
 
     private func handleRestoredScan(_ restoredScanServices: [ServiceID]?) {
