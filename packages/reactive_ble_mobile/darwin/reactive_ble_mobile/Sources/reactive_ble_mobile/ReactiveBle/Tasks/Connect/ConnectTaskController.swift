@@ -17,7 +17,14 @@ struct ConnectTaskController: PeripheralTaskController {
                        userInfo: [NSLocalizedDescriptionKey: "Invalid state for connect operation"]))))
         }
 
-        centralManager.connect(peripheral)
+        centralManager.connect(
+            peripheral,
+            options: [
+                CBConnectPeripheralOptionNotifyOnConnectionKey: true,
+                CBConnectPeripheralOptionNotifyOnDisconnectionKey: true,
+                CBConnectPeripheralOptionNotifyOnNotificationKey: true,
+            ]
+        )
         return task.with(state: task.state.processing(.connecting))
     }
 
