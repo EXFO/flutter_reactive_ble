@@ -9,6 +9,7 @@ import com.signify.hue.flutterreactiveble.channelhandlers.ScanDevicesHandler
 import com.signify.hue.flutterreactiveble.converters.ProtobufMessageConverter
 import com.signify.hue.flutterreactiveble.converters.UuidConverter
 import com.signify.hue.flutterreactiveble.utils.discard
+import com.signify.hue.flutterreactiveble.utils.mapDiscoverServicesError
 import com.signify.hue.flutterreactiveble.utils.toConnectionPriority
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
@@ -369,24 +370,6 @@ class PluginController {
             .discard()
     }
 
-    private fun mapDiscoverServicesError(
-        throwable: Throwable,
-        deviceId: String,
-    ): Pair<String, String> {
-        val msg = throwable.message ?: ""
-        val isAlreadyConnected =
-            throwable is com.polidea.rxandroidble2.exceptions.BleAlreadyConnectedException ||
-                    msg.contains("Already connected", ignoreCase = true)
-
-        return if (isAlreadyConnected) {
-            "device_already_connected" to
-                    "Device $deviceId is already connected at the OS level but is no longer tracked " +
-                    "by the plugin. Call disconnectDevice (or restart Bluetooth) before retrying. " +
-                    "Original error: $msg"
-        } else {
-            "service_discovery_failure" to throwable.toString()
-        }
-    }
     private fun readRssi(
         call: MethodCall,
         result: Result,
