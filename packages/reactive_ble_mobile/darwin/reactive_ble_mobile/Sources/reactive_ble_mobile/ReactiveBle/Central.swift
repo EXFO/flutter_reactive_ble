@@ -39,6 +39,10 @@ final class Central {
     private lazy var characteristicNotifyRegistry = PeripheralTaskRegistry<CharacteristicNotifyTaskController>(timeoutQueue: queueIdentifier)
     private lazy var characteristicWriteRegistry = PeripheralTaskRegistry<CharacteristicWriteTaskController>(timeoutQueue: queueIdentifier)
     private lazy var readRssiRegistry = PeripheralTaskRegistry<ReadRssiTaskController>(timeoutQueue: queueIdentifier)
+    private var reconnectWorkItems = [PeripheralID: DispatchWorkItem]()
+    private var reconnectIntents = [PeripheralID: ServicesWithCharacteristicsToDiscover]()
+    private var manualDisconnects = Set<PeripheralID>()
+    private static let autoReconnectDelayInSeconds: TimeInterval = 1.5
     private static let restoreIdentifier = "com.signifiy.hue.flutterreactiveble.central.restoration"
 
     init(
@@ -60,6 +64,10 @@ final class Central {
                         central.eject(peripheral, error: error)
                         onConnectionChange(central, peripheral, .disconnected(error))
                     }
+                } else {
+                    central.reconnectIntents.keys.forEach { peripheralID in
+                        central.scheduleAutoReconnectIfNeeded(for: peripheralID)
+                    }
                 }
                 onStateChange(central, state)
             },
@@ -72,9 +80,12 @@ final class Central {
 
                 switch change {
                 case .connected:
+                    central.cancelPendingReconnect(for: peripheral.identifier)
+                    central.manualDisconnects.remove(peripheral.identifier)
                     break
                 case .failedToConnect(let error), .disconnected(let error):
                     central.eject(peripheral, error: error ?? PluginError.connectionLost)
+                    central.scheduleAutoReconnectIfNeeded(for: peripheral.identifier)
                 }
 
                 onConnectionChange(central, peripheral, change)
@@ -223,6 +234,22 @@ final class Central {
             else { return }
 
             centralManager.cancelPeripheralConnection(peripheral)
+        }
+    }
+
+    func enableAutoReconnect(for peripheralID: PeripheralID, discover servicesWithCharacteristicsToDiscover: ServicesWithCharacteristicsToDiscover) {
+        performSync {
+            reconnectIntents[peripheralID] = servicesWithCharacteristicsToDiscover
+            manualDisconnects.remove(peripheralID)
+            cancelPendingReconnectLocked(for: peripheralID)
+        }
+    }
+
+    func disableAutoReconnect(for peripheralID: PeripheralID) {
+        performSync {
+            reconnectIntents.removeValue(forKey: peripheralID)
+            manualDisconnects.insert(peripheralID)
+            cancelPendingReconnectLocked(for: peripheralID)
         }
     }
 
@@ -399,6 +426,10 @@ final class Central {
             self.characteristicNotifyRegistry.clearAll()
             self.characteristicWriteRegistry.clearAll()
             self.readRssiRegistry.clearAll()
+            self.reconnectWorkItems.values.forEach { $0.cancel() }
+            self.reconnectWorkItems.removeAll()
+            self.reconnectIntents.removeAll()
+            self.manualDisconnects.removeAll()
             self.activePeripherals.values.forEach(self.centralManager.cancelPeripheralConnection)
             self.activePeripherals.removeAll()
 
@@ -436,6 +467,68 @@ final class Central {
         peripherals.forEach { peripheral in
             peripheral.delegate = peripheralDelegate
             activePeripherals[peripheral.identifier] = peripheral
+            scheduleAutoReconnectIfNeeded(for: peripheral.identifier)
+        }
+    }
+
+    private func cancelPendingReconnect(for peripheralID: PeripheralID) {
+        performSync {
+            cancelPendingReconnectLocked(for: peripheralID)
+        }
+    }
+
+    private func cancelPendingReconnectLocked(for peripheralID: PeripheralID) {
+        reconnectWorkItems[peripheralID]?.cancel()
+        reconnectWorkItems[peripheralID] = nil
+    }
+
+    private func scheduleAutoReconnectIfNeeded(for peripheralID: PeripheralID) {
+        performSync {
+            guard !manualDisconnects.contains(peripheralID),
+                  reconnectIntents[peripheralID] != nil
+            else {
+                return
+            }
+
+            cancelPendingReconnectLocked(for: peripheralID)
+            let workItem = DispatchWorkItem { [weak self] in
+                self?.attemptAutoReconnect(for: peripheralID)
+            }
+            reconnectWorkItems[peripheralID] = workItem
+            queueIdentifier.asyncAfter(
+                deadline: .now() + Self.autoReconnectDelayInSeconds,
+                execute: workItem
+            )
+        }
+    }
+
+    private func attemptAutoReconnect(for peripheralID: PeripheralID) {
+        performSync {
+            reconnectWorkItems[peripheralID] = nil
+
+            guard centralManager.state == .poweredOn,
+                  !manualDisconnects.contains(peripheralID),
+                  let servicesWithCharacteristicsToDiscover = reconnectIntents[peripheralID]
+            else {
+                return
+            }
+
+            guard let peripheral = try? resolve(known: peripheralID),
+                  peripheral.state != .connected,
+                  peripheral.state != .connecting
+            else {
+                return
+            }
+
+            do {
+                try connect(
+                    to: peripheralID,
+                    discover: servicesWithCharacteristicsToDiscover,
+                    timeout: nil
+                )
+            } catch {
+                scheduleAutoReconnectIfNeeded(for: peripheralID)
+            }
         }
     }
 
