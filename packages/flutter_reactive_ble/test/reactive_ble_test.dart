@@ -228,13 +228,7 @@ void main() {
 
         await expectLater(
           () => _sut.readCharacteristic(characteristic),
-          throwsA(
-            isA<Exception>().having(
-              (error) => error.toString(),
-              'message',
-              contains('Multiple matching characteristics found'),
-            ),
-          ),
+          throwsA(isA<AmbiguousCharacteristicException>()),
         );
 
         verifyNever(_deviceOperation.readCharacteristic(any));

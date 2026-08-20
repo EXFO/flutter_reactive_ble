@@ -13,6 +13,7 @@ import 'package:reactive_ble_mobile/reactive_ble_mobile.dart';
 import 'package:reactive_ble_platform_interface/reactive_ble_platform_interface.dart';
 
 import 'ble_connection_type.dart';
+import 'characteristic_resolution_exception.dart';
 
 /// [FlutterReactiveBle] is the facade of the library. Its interface allows to
 /// perform all the supported BLE operations.
@@ -454,17 +455,25 @@ class FlutterReactiveBle {
   }
 
   Future<Iterable<Characteristic>> resolve(QualifiedCharacteristic characteristic) async {
-    final services = await getDiscoveredServices(characteristic.deviceId);
-    return services
-        .withId(characteristic.serviceId)
-        .expand((service) => service.characteristics.withId(characteristic.characteristicId));
+    try {
+      final services = await getDiscoveredServices(characteristic.deviceId);
+      return services
+          .withId(characteristic.serviceId)
+          .expand((service) => service.characteristics.withId(characteristic.characteristicId));
+    } catch (e) {
+      throw CharacteristicConnectionLostException(characteristic, cause: e);
+    }
   }
 
   Future<Characteristic> resolveSingle(QualifiedCharacteristic characteristic) async {
-    final chars = await resolve(characteristic);
-    if (chars.isEmpty) throw Exception("Characteristic not found or discovered: $characteristic");
-    if (chars.length > 1) throw Exception("Multiple matching characteristics found: $characteristic");
-    return chars.single;
+    final chars = (await resolve(characteristic)).toList();
+    if (chars.isEmpty) throw CharacteristicNotFoundException(characteristic);
+    if (chars.length > 1) throw AmbiguousCharacteristicException(characteristic, chars.length);
+    final characteristicInstance = chars.single;
+    if (!characteristicInstance._valid) {
+      throw CharacteristicConnectionLostException(characteristic);
+    }
+    return characteristicInstance;
   }
 
   /// Sets the verbosity of debug output.
