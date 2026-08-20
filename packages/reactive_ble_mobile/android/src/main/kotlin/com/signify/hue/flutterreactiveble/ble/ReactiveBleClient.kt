@@ -38,17 +38,14 @@ import kotlin.collections.component2
 open class ReactiveBleClient(private val context: Context) : BleClient {
     private val connectionQueue = ConnectionQueue()
     private val allConnections = CompositeDisposable()
+    private val connectionUpdateBehaviorSubject: BehaviorSubject<ConnectionUpdate> =
+        BehaviorSubject.create()
 
-    companion object {
-        // this needs to be in companion update since background isolates respawn the event channels
-        // Fix for https://github.com/PhilipsHue/flutter_reactive_ble/issues/277
-        private val connectionUpdateBehaviorSubject: BehaviorSubject<ConnectionUpdate> =
-            BehaviorSubject.create()
+    @VisibleForTesting
+    internal lateinit var rxBleClient: RxBleClient
 
-        lateinit var rxBleClient: RxBleClient
-            internal set
-        internal var activeConnections: MutableMap<String, DeviceConnector> = ConcurrentHashMap()
-    }
+    @VisibleForTesting
+    internal var activeConnections: MutableMap<String, DeviceConnector> = ConcurrentHashMap()
 
     override val connectionUpdateSubject: BehaviorSubject<ConnectionUpdate>
         get() = connectionUpdateBehaviorSubject
@@ -140,6 +137,7 @@ open class ReactiveBleClient(private val context: Context) : BleClient {
 
     override fun disconnectAllDevices() {
         activeConnections.forEach { (device, connector) -> connector.disconnectDevice(device) }
+        activeConnections.clear()
         allConnections.dispose()
     }
 

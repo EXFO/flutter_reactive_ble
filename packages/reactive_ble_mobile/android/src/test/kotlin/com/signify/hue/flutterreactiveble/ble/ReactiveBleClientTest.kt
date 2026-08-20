@@ -425,7 +425,7 @@ class ReactiveBleClientTest {
 
         @Test
         fun `It surfaces an actionable error when device is connected at OS level but untracked`() {
-            ReactiveBleClient.activeConnections.clear()
+            sut.activeConnections.clear()
             every { bleDevice.connectionState }.returns(RxBleConnection.RxBleConnectionState.CONNECTED)
 
             val result = sut.discoverServices("untracked").test()
