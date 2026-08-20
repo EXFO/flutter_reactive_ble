@@ -1,3 +1,7 @@
+## Unreleased
+
+* iOS: queue `writeWithoutResponse` until `canSendWriteWithoutResponse` / `peripheralIsReady` to avoid silent drops
+
 ## 5.5.0+3
 
 * Android: Migration groovy to Kotlin

@@ -39,6 +39,7 @@ final class Central {
     private lazy var characteristicNotifyRegistry = PeripheralTaskRegistry<CharacteristicNotifyTaskController>(timeoutQueue: queueIdentifier)
     private lazy var characteristicWriteRegistry = PeripheralTaskRegistry<CharacteristicWriteTaskController>(timeoutQueue: queueIdentifier)
     private lazy var readRssiRegistry = PeripheralTaskRegistry<ReadRssiTaskController>(timeoutQueue: queueIdentifier)
+    private var pendingWritesWithoutResponse = [PeripheralID: [PendingWriteWithoutResponse]]()
     private var reconnectWorkItems = [PeripheralID: DispatchWorkItem]()
     private var reconnectIntents = [PeripheralID: ServicesWithCharacteristicsToDiscover]()
     private var manualDisconnects = Set<PeripheralID>()
@@ -151,6 +152,9 @@ final class Central {
                     key: peripheral.identifier,
                     action: { $0.handleReadRssi(rssi: rssi, error: error) }
                 )
+            },
+            onReadyToSendWriteWithoutResponse: papply(weak: self) { central, peripheral in
+                central.flushPendingWritesWithoutResponse(for: peripheral)
             }
         )
 
@@ -391,7 +395,8 @@ final class Central {
 
     func writeWithoutResponse(
         value: Data,
-        characteristic characteristicInstance: CharacteristicInstance
+        characteristic characteristicInstance: CharacteristicInstance,
+        completion: @escaping CharacteristicWriteCompletionHandler
     ) throws {
         try performSync {
             let characteristic = try resolve(characteristic: characteristicInstance)
@@ -399,10 +404,44 @@ final class Central {
             guard characteristic.properties.contains(.writeWithoutResponse)
             else { throw Failure.notWritable(characteristicInstance) }
 
-            guard let response = characteristic.service?.peripheral?.writeValue(value, for: characteristic, type: .withoutResponse)
-            else { throw Failure.characteristicNotFound(characteristicInstance) }
+            guard let peripheral = characteristic.service?.peripheral
+            else { throw Failure.peripheralIsUnknown(characteristicInstance.peripheralID) }
 
-            return response
+            var queue = pendingWritesWithoutResponse[peripheral.identifier] ?? []
+            queue.append(PendingWriteWithoutResponse(
+                value: value,
+                characteristicInstance: characteristicInstance,
+                completion: completion
+            ))
+            pendingWritesWithoutResponse[peripheral.identifier] = queue
+
+            flushPendingWritesWithoutResponse(for: peripheral)
+        }
+    }
+
+    private func flushPendingWritesWithoutResponse(for peripheral: CBPeripheral) {
+        while true {
+            guard var queue = pendingWritesWithoutResponse[peripheral.identifier], !queue.isEmpty
+            else { return }
+
+            if !peripheral.canSendWriteWithoutResponse {
+                return
+            }
+
+            let pending = queue.removeFirst()
+            if queue.isEmpty {
+                pendingWritesWithoutResponse[peripheral.identifier] = nil
+            } else {
+                pendingWritesWithoutResponse[peripheral.identifier] = queue
+            }
+
+            do {
+                let characteristic = try resolve(characteristic: pending.characteristicInstance)
+                peripheral.writeValue(pending.value, for: characteristic, type: .withoutResponse)
+                pending.completion(self, pending.characteristicInstance, nil)
+            } catch {
+                pending.completion(self, pending.characteristicInstance, error)
+            }
         }
     }
 
@@ -450,6 +489,11 @@ final class Central {
             self.reconnectWorkItems.removeAll()
             self.reconnectIntents.removeAll()
             self.manualDisconnects.removeAll()
+            let shutdownError = PluginError.connectionLost
+            self.pendingWritesWithoutResponse.values.flatMap { $0 }.forEach {
+                $0.completion(self, $0.characteristicInstance, shutdownError)
+            }
+            self.pendingWritesWithoutResponse.removeAll()
             self.activePeripherals.values.forEach(self.centralManager.cancelPeripheralConnection)
             self.activePeripherals.removeAll()
 
@@ -477,6 +521,16 @@ final class Central {
             in: peripheral.identifier,
             action: { $0.cancel(error: error) }
         )
+
+        if let pending = pendingWritesWithoutResponse.removeValue(forKey: peripheral.identifier) {
+            pending.forEach { $0.completion(self, $0.characteristicInstance, error) }
+        }
+    }
+
+    private struct PendingWriteWithoutResponse {
+        let value: Data
+        let characteristicInstance: CharacteristicInstance
+        let completion: CharacteristicWriteCompletionHandler
     }
 
     private func handleRestoredPeripherals(_ peripherals: [CBPeripheral]) {
