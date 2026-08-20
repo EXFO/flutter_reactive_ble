@@ -107,7 +107,7 @@ open class ReactiveBleClient(private val context: Context) : BleClient {
         timeout: Duration,
     ) {
         allConnections.add(
-            getConnection(deviceId, timeout)
+            getConnection(deviceId, timeout, forceConnecting = true)
                 .subscribe({ result ->
                     when (result) {
                         is EstablishedConnection -> {
@@ -281,7 +281,15 @@ open class ReactiveBleClient(private val context: Context) : BleClient {
     private fun getConnection(
         deviceId: String,
         timeout: Duration = Duration(0, TimeUnit.MILLISECONDS),
+        forceConnecting: Boolean = false,
     ): Observable<EstablishConnectionResult> {
+        if (!forceConnecting) {
+            return activeConnections[deviceId]?.connection
+                ?: Observable.just(
+                    EstablishConnectionFailure(deviceId, "Device is not connected"),
+                )
+        }
+
         val device = rxBleClient.getBleDevice(deviceId)
         activeConnections[deviceId]?.let { existing ->
             return existing.connection

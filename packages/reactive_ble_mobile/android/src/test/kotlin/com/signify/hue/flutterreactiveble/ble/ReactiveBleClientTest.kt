@@ -14,6 +14,7 @@ import com.signify.hue.flutterreactiveble.ble.extensions.writeCharWithResponse
 import com.signify.hue.flutterreactiveble.ble.extensions.writeCharWithoutResponse
 import com.signify.hue.flutterreactiveble.utils.Duration
 import io.mockk.MockKAnnotations
+import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.mockkStatic
@@ -106,6 +107,7 @@ class ReactiveBleClientTest {
         every { rxBleClient.getBleDevice(any()) }.returns(bleDevice)
         every { deviceConnector.connection }.returns(subject)
 
+        sut.connectToDevice("test", testTimeout)
         subject.onNext(EstablishedConnection("test", rxConnection))
     }
 
@@ -119,9 +121,21 @@ class ReactiveBleClientTest {
     inner class EstablishConnectionTest {
         @Test
         fun `should use deviceconnector when connecting to a device`() {
-            sut.connectToDevice("test", testTimeout)
+            verify(atLeast = 1) { deviceConnector.connection }
+        }
 
-            verify(exactly = 1) { deviceConnector.connection }
+        @Test
+        fun `should not create a connection when reading while disconnected`() {
+            sut.disconnectDevice("test")
+            clearMocks(deviceConnector, answers = false)
+
+            val result = sut.readCharacteristic("test", UUID.randomUUID(), 11).test()
+
+            assertThat(result.values().first()).isInstanceOf(CharOperationFailed::class.java)
+            assertThat((result.values().first() as CharOperationFailed).errorMessage)
+                .contains("Device is not connected")
+            verify(exactly = 0) { deviceConnector.connection }
+            verify(exactly = 0) { rxConnection.readCharacteristic(any<BluetoothGattCharacteristic>()) }
         }
     }
 
