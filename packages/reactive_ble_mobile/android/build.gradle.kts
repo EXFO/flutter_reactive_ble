@@ -82,7 +82,7 @@ configure<DetektExtension> {
 
 configure<ProtobufExtension> {
     protoc {
-        artifact = "com.google.protobuf:protoc:3.25.3"
+        artifact = "com.google.protobuf:protoc:3.25.9"
     }
     generateProtoTasks {
         all().forEach { task ->
@@ -115,7 +115,7 @@ dependencies {
     add("implementation", "io.reactivex.rxjava2:rxandroid:2.1.1")
     add("implementation", "io.reactivex.rxjava2:rxkotlin:2.4.0")
 
-    add("implementation", "com.google.protobuf:protobuf-javalite:3.25.3")
+    add("implementation", "com.google.protobuf:protobuf-javalite:3.25.9")
 
     add("testImplementation", "org.junit.jupiter:junit-jupiter-api:5.7.0")
     add("testRuntimeOnly", "org.junit.jupiter:junit-jupiter-engine:5.7.0")
