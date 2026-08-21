@@ -1,6 +1,11 @@
-## Unreleased
+## 5.5.0+4
 
+* iOS: serialize CoreBluetooth access on the dedicated `Central` queue to avoid unsafe cross-thread usage
+* iOS: improve auto-reconnect handling (moved into `Central`, ordered shutdown)
+* iOS: report BLE status as soon as the status event sink attaches (remove fixed 1 s delay after startup/restoration)
+* iOS: run `Central` CoreBluetooth callbacks on a `userInitiated` dispatch queue for faster state restoration handling
 * iOS: queue `writeWithoutResponse` until `canSendWriteWithoutResponse` / `peripheralIsReady` to avoid silent drops
+* iOS: pass connect options from `ConnectTaskController` when connecting peripherals
 
 ## 5.5.0+3
 
