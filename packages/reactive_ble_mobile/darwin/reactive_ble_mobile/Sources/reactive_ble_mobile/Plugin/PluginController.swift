@@ -228,25 +228,28 @@ final class PluginController {
             return
         }
 
-        central.stopScan()
-        central.disconnectAll()
+        central.shutdown { [weak self] in
+            guard let self else {
+                return
+            }
 
-        self.central = nil
-        self.scan = nil
-        eventDispatchQueue.sync {
-            connectedDeviceSink = nil
-            characteristicValueSink = nil
-            bufferedConnectedDeviceUpdates.removeAll()
-            bufferedCharacteristicValueUpdates.removeAll()
-        }
-        reconnectDispatchQueue.sync {
-            reconnectWorkItems.values.forEach { $0.cancel() }
-            reconnectWorkItems.removeAll()
-            autoReconnectTargets.removeAll()
-            manualDisconnects.removeAll()
-        }
+            self.central = nil
+            self.scan = nil
+            self.eventDispatchQueue.sync {
+                self.connectedDeviceSink = nil
+                self.characteristicValueSink = nil
+                self.bufferedConnectedDeviceUpdates.removeAll()
+                self.bufferedCharacteristicValueUpdates.removeAll()
+            }
+            self.reconnectDispatchQueue.sync {
+                self.reconnectWorkItems.values.forEach { $0.cancel() }
+                self.reconnectWorkItems.removeAll()
+                self.autoReconnectTargets.removeAll()
+                self.manualDisconnects.removeAll()
+            }
 
-        completion(.success(nil))
+            completion(.success(nil))
+        }
     }
 
     func scanForDevices(name: String, args: ScanForDevicesRequest, completion: @escaping PlatformMethodCompletionHandler) {
