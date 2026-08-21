@@ -191,7 +191,14 @@ final class Central {
 
     func connect(to peripheralID: PeripheralID, discover servicesWithCharacteristicsToDiscover: ServicesWithCharacteristicsToDiscover, timeout: TimeInterval?) throws {
         try performSync {
+            cancelPendingReconnectLocked(for: peripheralID)
+
             let peripheral = try resolve(known: peripheralID)
+
+            connectRegistry.updateTask(
+                key: peripheralID,
+                action: { $0.cancel(centralManager: centralManager, peripheral: peripheral, error: nil) }
+            )
 
             peripheral.delegate = peripheralDelegate
             activePeripherals[peripheral.identifier] = peripheral
@@ -230,9 +237,15 @@ final class Central {
 
     func disconnect(from peripheralID: PeripheralID) {
         performSync {
+            cancelPendingReconnectLocked(for: peripheralID)
+
             guard let peripheral = try? resolve(known: peripheralID)
             else { return }
 
+            connectRegistry.updateTask(
+                key: peripheralID,
+                action: { $0.cancel(centralManager: centralManager, peripheral: peripheral, error: nil) }
+            )
             centralManager.cancelPeripheralConnection(peripheral)
         }
     }
@@ -257,7 +270,14 @@ final class Central {
         performSync {
             activePeripherals
                 .values
-                .forEach(centralManager.cancelPeripheralConnection)
+                .forEach { peripheral in
+                    cancelPendingReconnectLocked(for: peripheral.identifier)
+                    connectRegistry.updateTask(
+                        key: peripheral.identifier,
+                        action: { $0.cancel(centralManager: centralManager, peripheral: peripheral, error: nil) }
+                    )
+                    centralManager.cancelPeripheralConnection(peripheral)
+                }
         }
     }
 
