@@ -1,3 +1,10 @@
+## 5.5.0+5
+
+* Android: bump `protobuf-javalite` to 3.25.9
+* Android: do not open a new GATT connection for reads/writes/discovers when the device is disconnected
+* Android: keep `ReactiveBleClient` connection state on the instance (not static companion) and clear `activeConnections` on `disconnectAllDevices`
+* Android: make `ReactiveBlePlugin` / `PluginController` lifecycle instance-based instead of static companion state
+
 ## 5.5.0+4
 
 * iOS: serialize CoreBluetooth access on the dedicated `Central` queue to avoid unsafe cross-thread usage
