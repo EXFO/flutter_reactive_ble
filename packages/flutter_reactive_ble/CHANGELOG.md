@@ -1,3 +1,8 @@
+## 5.5.0+6
+
+* Throw typed `CharacteristicResolutionException` subtypes from `resolve` / `resolveSingle` (`CharacteristicNotFoundException`, `AmbiguousCharacteristicException`, `CharacteristicConnectionLostException`) instead of generic `Exception`
+* Treat an invalidated characteristic after resolution as a connection-lost failure
+
 ## 5.5.0+5
 
 * Bump version for 5.5.0+5 release (implementation updates in `reactive_ble_mobile`)

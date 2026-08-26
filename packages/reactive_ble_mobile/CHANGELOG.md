@@ -1,3 +1,8 @@
+## 5.5.0+6
+
+* Android: walk the cause chain in `ErrorParser` for `BleDisconnectedException` and GATT status codes in messages
+* Android: map service-discovery failures to clearer codes (`device_already_connected`, `service_discovery_timeout`, `service_discovery_terminated`)
+
 ## 5.5.0+5
 
 * Android: bump `protobuf-javalite` to 3.25.9
