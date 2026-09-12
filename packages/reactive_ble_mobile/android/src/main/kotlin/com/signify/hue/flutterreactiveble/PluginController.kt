@@ -21,7 +21,7 @@ import com.signify.hue.flutterreactiveble.ProtobufModel as pb
 
 @Suppress("TooManyFunctions")
 class PluginController {
-    private val pluginMethods =
+    private val pluginMethods by lazy {
         mapOf<String, (call: MethodCall, result: Result) -> Unit>(
             "initialize" to this::initializeClient,
             "deinitialize" to this::deinitializeClient,
@@ -40,6 +40,7 @@ class PluginController {
             "getDiscoveredServices" to this::discoverServices,
             "readRssi" to this::readRssi,
         )
+    }
 
     private lateinit var bleClient: com.signify.hue.flutterreactiveble.ble.BleClient
 

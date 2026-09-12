@@ -36,10 +36,11 @@ import kotlin.collections.component1
 import kotlin.collections.component2
 @Suppress("TooManyFunctions")
 open class ReactiveBleClient(private val context: Context) : BleClient {
-    private val connectionQueue = ConnectionQueue()
+    private val connectionQueue by lazy { ConnectionQueue() }
     private val allConnections = CompositeDisposable()
-    private val connectionUpdateBehaviorSubject: BehaviorSubject<ConnectionUpdate> =
+    private val connectionUpdateBehaviorSubject: BehaviorSubject<ConnectionUpdate> by lazy {
         BehaviorSubject.create()
+    }
 
     @VisibleForTesting
     internal lateinit var rxBleClient: RxBleClient
