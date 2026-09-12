@@ -10,6 +10,7 @@ import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.verify
 import io.reactivex.Observable
+import io.reactivex.schedulers.TestScheduler
 import io.reactivex.subjects.BehaviorSubject
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import java.lang.Exception
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 @DisplayName("DeviceConnector unit tests")
 class DeviceConnectorTest {
@@ -35,12 +37,16 @@ class DeviceConnectorTest {
 
     private lateinit var sut: DeviceConnector
     private lateinit var subject: BehaviorSubject<List<String>>
+    private lateinit var testScheduler: TestScheduler
     private val deviceId = "123"
+    private val removedFromMap = AtomicBoolean(false)
 
     @BeforeEach
     fun setup() {
         MockKAnnotations.init(this)
         subject = BehaviorSubject.create()
+        testScheduler = TestScheduler()
+        removedFromMap.set(false)
         every { device.connectionState }.returns(RxBleConnection.RxBleConnectionState.DISCONNECTED)
         every { device.observeConnectionStateChanges() }.returns(Observable.just(RxBleConnection.RxBleConnectionState.CONNECTED))
         every { device.macAddress }.returns(deviceId)
@@ -51,12 +57,20 @@ class DeviceConnectorTest {
         every { connectionQueue.removeFromQueue(any()) }.returns(Unit)
 
         subject.onNext(listOf(device.macAddress))
-        sut = DeviceConnector(device, Duration(0L, TimeUnit.MILLISECONDS), updateListener, connectionQueue)
+        sut =
+            DeviceConnector(
+                device,
+                Duration(0L, TimeUnit.MILLISECONDS),
+                updateListener,
+                connectionQueue,
+                onDisconnected = { removedFromMap.set(true) },
+                timerScheduler = testScheduler,
+            )
     }
 
     @AfterEach
     fun teardown() {
-        sut.disconnectDevice(deviceId)
+        sut.disconnectDevice(deviceId, immediate = true)
     }
 
     @Nested
@@ -150,19 +164,77 @@ class DeviceConnectorTest {
             sut.connection.test()
             verify(exactly = 1) { connectionQueue.removeFromQueue(deviceId) }
         }
+
+        @Test
+        @DisplayName("TearDown completes subject and notifies onDisconnected on establish failure")
+        fun tearDownOnEstablishFailure() {
+            val observer = sut.connection.test()
+
+            assertThat(observer.values().first()).isInstanceOf(EstablishConnectionFailure::class.java)
+            observer.assertComplete()
+            assertThat(removedFromMap.get()).isTrue()
+            verify(exactly = 1) {
+                updateListener.invoke(ConnectionUpdateSuccess(deviceId, ConnectionState.DISCONNECTED.code))
+            }
+        }
     }
 
     @Test
     @DisplayName("Dispose observable in case disconnecting")
     fun disposeOnDisconnect() {
+        every { device.establishConnection(any()) }.returns(Observable.just(connection))
         every { device.connectionState }.returns(RxBleConnection.RxBleConnectionState.DISCONNECTED)
 
         sut.connection.test()
 
-        sut.disconnectDevice(deviceId)
+        sut.disconnectDevice(deviceId, immediate = true)
 
         assertThat(sut.connectionDisposable?.isDisposed).isTrue()
+        assertThat(removedFromMap.get()).isTrue()
 
+        verify(exactly = 1) { updateListener.invoke(ConnectionUpdateSuccess(deviceId, ConnectionState.DISCONNECTED.code)) }
+    }
+
+    @Test
+    @DisplayName("TearDown is idempotent")
+    fun tearDownIdempotent() {
+        every { device.establishConnection(any()) }.returns(Observable.just(connection))
+        sut.connection.test()
+
+        sut.tearDown("first")
+        sut.tearDown("second")
+
+        verify(exactly = 1) { updateListener.invoke(ConnectionUpdateSuccess(deviceId, ConnectionState.DISCONNECTED.code)) }
+        assertThat(removedFromMap.get()).isTrue()
+    }
+
+    @Test
+    @DisplayName("Delayed disconnect still tears down when timer is cancelled")
+    fun delayedDisconnectRunsOnTimerCancel() {
+        every { device.establishConnection(any()) }.returns(Observable.just(connection))
+        sut.connection.test()
+
+        sut.disconnectDevice(deviceId, immediate = false)
+        assertThat(removedFromMap.get()).isFalse()
+
+        sut.disconnectionDisposable?.dispose()
+
+        assertThat(removedFromMap.get()).isTrue()
+        verify(exactly = 1) { updateListener.invoke(ConnectionUpdateSuccess(deviceId, ConnectionState.DISCONNECTED.code)) }
+    }
+
+    @Test
+    @DisplayName("Delayed disconnect tears down after timer elapses")
+    fun delayedDisconnectRunsOnTimerComplete() {
+        every { device.establishConnection(any()) }.returns(Observable.just(connection))
+        sut.connection.test()
+
+        sut.disconnectDevice(deviceId, immediate = false)
+        assertThat(removedFromMap.get()).isFalse()
+
+        testScheduler.advanceTimeBy(500, TimeUnit.MILLISECONDS)
+
+        assertThat(removedFromMap.get()).isTrue()
         verify(exactly = 1) { updateListener.invoke(ConnectionUpdateSuccess(deviceId, ConnectionState.DISCONNECTED.code)) }
     }
 }

@@ -133,11 +133,13 @@ open class ReactiveBleClient(private val context: Context) : BleClient {
 
     override fun disconnectDevice(deviceId: String) {
         activeConnections[deviceId]?.disconnectDevice(deviceId)
-        activeConnections.remove(deviceId)
     }
 
     override fun disconnectAllDevices() {
-        activeConnections.forEach { (device, connector) -> connector.disconnectDevice(device) }
+        val connectors = activeConnections.toMap()
+        connectors.forEach { (device, connector) ->
+            connector.disconnectDevice(device, immediate = true)
+        }
         activeConnections.clear()
         allConnections.dispose()
     }
@@ -275,7 +277,13 @@ open class ReactiveBleClient(private val context: Context) : BleClient {
     internal open fun createDeviceConnector(
         device: RxBleDevice,
         timeout: Duration,
-    ) = DeviceConnector(device, timeout, connectionUpdateBehaviorSubject::onNext, connectionQueue)
+    ) = DeviceConnector(
+        device,
+        timeout,
+        connectionUpdateBehaviorSubject::onNext,
+        connectionQueue,
+        onDisconnected = { deviceId -> activeConnections.remove(deviceId) },
+    )
 
     private fun getConnection(
         deviceId: String,

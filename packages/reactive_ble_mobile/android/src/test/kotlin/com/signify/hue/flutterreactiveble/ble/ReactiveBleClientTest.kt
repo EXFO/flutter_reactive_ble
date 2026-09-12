@@ -106,6 +106,10 @@ class ReactiveBleClientTest {
         every { bleDevice.connectionState }.returns(RxBleConnection.RxBleConnectionState.DISCONNECTED)
         every { rxBleClient.getBleDevice(any()) }.returns(bleDevice)
         every { deviceConnector.connection }.returns(subject)
+        every { deviceConnector.disconnectDevice(any(), any()) } answers {
+            sut.activeConnections.remove(firstArg<String>())
+            Unit
+        }
 
         sut.connectToDevice("test", testTimeout)
         subject.onNext(EstablishedConnection("test", rxConnection))
@@ -128,14 +132,27 @@ class ReactiveBleClientTest {
         fun `should not create a connection when reading while disconnected`() {
             sut.disconnectDevice("test")
             clearMocks(deviceConnector, answers = false)
+            every { deviceConnector.disconnectDevice(any(), any()) } answers {
+                sut.activeConnections.remove(firstArg<String>())
+                Unit
+            }
 
             val result = sut.readCharacteristic("test", UUID.randomUUID(), 11).test()
 
             assertThat(result.values().first()).isInstanceOf(CharOperationFailed::class.java)
             assertThat((result.values().first() as CharOperationFailed).errorMessage)
                 .contains("Device is not connected")
+            assertThat(sut.activeConnections).isEmpty()
             verify(exactly = 0) { deviceConnector.connection }
             verify(exactly = 0) { rxConnection.readCharacteristic(any<BluetoothGattCharacteristic>()) }
+        }
+
+        @Test
+        fun `disconnectDevice clears activeConnections via tearDown callback path`() {
+            assertThat(sut.activeConnections).containsKey("test")
+            sut.disconnectDevice("test")
+            assertThat(sut.activeConnections).isEmpty()
+            verify(exactly = 1) { deviceConnector.disconnectDevice("test", false) }
         }
     }
 

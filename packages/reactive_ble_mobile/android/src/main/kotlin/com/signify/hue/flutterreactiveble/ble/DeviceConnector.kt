@@ -9,17 +9,22 @@ import com.signify.hue.flutterreactiveble.model.toConnectionState
 import com.signify.hue.flutterreactiveble.utils.Duration
 import io.reactivex.Completable
 import io.reactivex.Observable
+import io.reactivex.Scheduler
 import io.reactivex.Single
 import io.reactivex.disposables.Disposable
 import io.reactivex.functions.Function
+import io.reactivex.schedulers.Schedulers
 import io.reactivex.subjects.BehaviorSubject
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 internal class DeviceConnector(
     private val device: RxBleDevice,
     private val connectionTimeout: Duration,
     private val updateListeners: (update: ConnectionUpdate) -> Unit,
     private val connectionQueue: ConnectionQueue,
+    private val onDisconnected: (deviceId: String) -> Unit = {},
+    private val timerScheduler: Scheduler = Schedulers.computation(),
 ) {
     companion object {
         private const val minTimeMsBeforeDisconnectingIsAllowed = 500L
@@ -33,7 +38,10 @@ internal class DeviceConnector(
     @VisibleForTesting
     internal var connectionDisposable: Disposable? = null
 
+    @VisibleForTesting
     internal var disconnectionDisposable: Disposable? = null
+
+    private val tornDown = AtomicBoolean(false)
 
     private val lazyConnection =
         lazy {
@@ -62,36 +70,64 @@ internal class DeviceConnector(
             }
     }
 
-    internal fun disconnectDevice(deviceId: String) {
+    /**
+     * Idempotent cleanup shared by every connection-end path.
+     * Order: cancel delay timer → dispose connection → DISCONNECTED + subject complete → notify client.
+     */
+    @VisibleForTesting
+    internal fun tearDown(reason: String) {
+        if (!tornDown.compareAndSet(false, true)) {
+            return
+        }
+
+        val deviceId = device.macAddress
+
+        disconnectionDisposable?.dispose()
+        disconnectionDisposable = null
+
+        connectionDisposable?.dispose()
+        connectionDisposable = null
+
+        updateListeners(ConnectionUpdateSuccess(deviceId, ConnectionState.DISCONNECTED.code))
+        connectDeviceSubject.onComplete()
+
+        connectionStatusUpdates.dispose()
+        connectionQueue.removeFromQueue(deviceId)
+        onDisconnected(deviceId)
+    }
+
+    internal fun disconnectDevice(
+        deviceId: String,
+        immediate: Boolean = false,
+    ) {
+        if (tornDown.get()) {
+            return
+        }
+
         val diff = System.currentTimeMillis() - timestampEstablishConnection
 
         /*
         in order to prevent Android from ignoring disconnects we add a delay when we try to
-        disconnect to quickly after establishing connection. https://issuetracker.google.com/issues/37121223
+        disconnect too quickly after establishing connection. https://issuetracker.google.com/issues/37121223
          */
-        if (diff < DeviceConnector.Companion.minTimeMsBeforeDisconnectingIsAllowed) {
-            disconnectionDisposable?.dispose()
-            disconnectionDisposable = Single.timer(DeviceConnector.Companion.minTimeMsBeforeDisconnectingIsAllowed - diff, TimeUnit.MILLISECONDS)
-                .doFinally {
-                    sendDisconnectedUpdate(deviceId)
-                    disposeSubscriptionsAndRemoveFromQueue(deviceId)
-                }.subscribe()
+        if (!immediate &&
+            timestampEstablishConnection > 0L &&
+            diff < minTimeMsBeforeDisconnectingIsAllowed
+        ) {
+            val remaining = minTimeMsBeforeDisconnectingIsAllowed - diff
+            val previous = disconnectionDisposable
+            disconnectionDisposable = null
+            previous?.dispose()
+            if (tornDown.get()) {
+                return
+            }
+            disconnectionDisposable =
+                Single.timer(remaining, TimeUnit.MILLISECONDS, timerScheduler)
+                    .doFinally { tearDown("delayed-disconnect") }
+                    .subscribe()
         } else {
-            sendDisconnectedUpdate(deviceId)
-            disposeSubscriptionsAndRemoveFromQueue(deviceId)
+            tearDown(if (immediate) "disconnect-immediate" else "disconnect")
         }
-    }
-
-    private fun sendDisconnectedUpdate(deviceId: String) {
-        updateListeners(ConnectionUpdateSuccess(deviceId, ConnectionState.DISCONNECTED.code))
-    }
-
-    private fun disposeSubscriptionsAndRemoveFromQueue(deviceId: String) {
-        disconnectionDisposable?.dispose()
-        connectionDisposable?.dispose()
-        connectDeviceSubject.onComplete()
-        connectionStatusUpdates.dispose()
-        connectionQueue.removeFromQueue(deviceId)
     }
 
     private fun establishConnection(rxBleDevice: RxBleDevice): Disposable {
@@ -127,23 +163,27 @@ internal class DeviceConnector(
                 connectionStatusUpdates
                 timestampEstablishConnection = System.currentTimeMillis()
                 connectionQueue.removeFromQueue(deviceId)
-                if (it is EstablishConnectionFailure) {
-                    updateListeners.invoke(ConnectionUpdateError(deviceId, it.errorMessage))
-                }
             }
             .doOnError {
                 connectionQueue.removeFromQueue(deviceId)
-                updateListeners.invoke(
-                    ConnectionUpdateError(
-                        deviceId,
-                        it.message
-                            ?: "Unknown error",
-                    ),
-                )
             }
             .subscribe(
-                { connectDeviceSubject.onNext(it) },
-                { throwable -> connectDeviceSubject.onError(throwable) },
+                { result ->
+                    connectDeviceSubject.onNext(result)
+                    if (result is EstablishConnectionFailure) {
+                        updateListeners.invoke(ConnectionUpdateError(deviceId, result.errorMessage))
+                        tearDown("establish-failure")
+                    }
+                },
+                { throwable ->
+                    updateListeners.invoke(
+                        ConnectionUpdateError(
+                            deviceId,
+                            throwable.message ?: "Unknown error",
+                        ),
+                    )
+                    tearDown("establish-error")
+                },
             )
     }
 
@@ -157,7 +197,7 @@ internal class DeviceConnector(
                     it
                 } else {
                     it.timeout(
-                        Observable.timer(connectionTimeout.value, connectionTimeout.unit),
+                        Observable.timer(connectionTimeout.value, connectionTimeout.unit, timerScheduler),
                         Function<RxBleConnection, Observable<Unit>> {
                             Observable.never<Unit>()
                         },
@@ -184,7 +224,7 @@ internal class DeviceConnector(
      *
      * Known to work up to Android Q beta 2.
      */
-    private fun clearGattCache(connection: RxBleConnection): Completable {
+    internal fun clearGattCache(connection: RxBleConnection): Completable {
         val operation =
             RxBleCustomOperation<Unit> { bluetoothGatt, _, _ ->
                 try {
@@ -192,7 +232,7 @@ internal class DeviceConnector(
                     val success = refreshMethod.invoke(bluetoothGatt) as Boolean
                     if (success) {
                         Observable.empty<Unit>()
-                            .delay(DeviceConnector.Companion.delayMsAfterClearingCache, TimeUnit.MILLISECONDS)
+                            .delay(delayMsAfterClearingCache, TimeUnit.MILLISECONDS, timerScheduler)
                     } else {
                         val reason = "BluetoothGatt.refresh() returned false"
                         Observable.error(RuntimeException(reason))
