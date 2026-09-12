@@ -1,3 +1,12 @@
+## 5.5.0+5
+
+* Android: bump `protobuf-javalite` to 3.25.9
+* Android: do not open a new GATT connection for reads/writes/discovers when the device is disconnected
+* Android: keep `ReactiveBleClient` connection state on the instance (not static companion) and clear `activeConnections` on `disconnectAllDevices`
+* Android: make `ReactiveBlePlugin` / `PluginController` lifecycle instance-based instead of static companion state
+* Android: lazy-init `ConnectionQueue` / connection `BehaviorSubject` and method map to reduce ANR risk on FlutterEngine attach (e.g. FCM background isolate) — see #930
+* Android: idempotent `DeviceConnector.tearDown` clears disposables, completes the subject, and removes `activeConnections`
+
 ## 5.5.0+4
 
 * iOS: serialize CoreBluetooth access on the dedicated `Central` queue to avoid unsafe cross-thread usage

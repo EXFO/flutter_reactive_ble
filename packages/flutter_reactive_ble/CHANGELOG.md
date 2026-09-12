@@ -1,3 +1,7 @@
+## 5.5.0+5
+
+* Bump version for 5.5.0+5 release (implementation updates in `reactive_ble_mobile`)
+
 ## 5.5.0+4
 
 * Document iOS write-without-response flow control and surface `WriteCharacteristicFailure.timedOut` on `writeCharacteristicWithoutResponse`
