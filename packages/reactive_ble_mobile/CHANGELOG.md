@@ -1,3 +1,7 @@
+## 5.5.0+6
+
+* Android: complete `readNotifications` only after CCCD notification/indication setup succeeds; surface setup failures as `notification_setup_failure`
+
 ## 5.5.0+5
 
 * Android: bump `protobuf-javalite` to 3.25.9
