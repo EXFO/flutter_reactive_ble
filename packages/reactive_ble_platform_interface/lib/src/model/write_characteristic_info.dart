@@ -31,4 +31,10 @@ class WriteCharacteristicInfo {
       result == other.result;
 }
 
-enum WriteCharacteristicFailure { unknown }
+enum WriteCharacteristicFailure {
+  /// Failure for an unknown reason.
+  unknown,
+
+  /// writeWithoutResponse timed out waiting for flow-control readiness.
+  timedOut,
+}

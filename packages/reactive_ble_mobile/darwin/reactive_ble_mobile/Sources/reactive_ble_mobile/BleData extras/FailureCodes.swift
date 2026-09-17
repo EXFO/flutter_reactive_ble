@@ -16,7 +16,19 @@ enum CharacteristicValueUpdateFailure: Int {
 
 enum WriteCharacteristicFailure: Int {
 
-    case unknown
+    case unknown = 0
+    case timedOut = 1
+}
+
+enum BleWriteError: Error, CustomStringConvertible {
+    case writeWithoutResponseTimedOut
+
+    var description: String {
+        switch self {
+        case .writeWithoutResponseTimedOut:
+            return "writeCharacteristicWithoutResponse timed out waiting for peripheralIsReady(toSendWriteWithoutResponse:)"
+        }
+    }
 }
 
 enum MaximumWriteValueLengthRetrieval: Int {

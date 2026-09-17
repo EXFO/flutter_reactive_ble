@@ -22,27 +22,46 @@ final class Central {
     typealias CharacteristicValueUpdateHandler = (Central, CharacteristicInstance, Data?, Error?) -> Void
     typealias CharacteristicWriteCompletionHandler = (Central, CharacteristicInstance, Error?) -> Void
 
+    // Callbacks
     private let onServicesWithCharacteristicsInitialDiscovery: ServicesWithCharacteristicsDiscoveryHandler
     private let onRestoredState: RestoredStateHandler
 
+    // CoreBluetooth
     private var peripheralDelegate: PeripheralDelegate!
     private var centralManagerDelegate: CentralManagerDelegate!
     private var centralManager: CBCentralManager!
 
+    // Scan / peripherals
     private(set) var isScanning = false
     private(set) var activePeripherals = [PeripheralID: CBPeripheral]()
+
+    // CoreBluetooth queue
     private let queueIdentifier = DispatchQueue(label: "com.signifiy.hue.flutterreactiveble.central.queue", qos: .userInitiated)
     private let queueSpecificKey = DispatchSpecificKey<UInt8>()
     private let queueSpecificValue: UInt8 = 1
+
+    // Peripheral task registries
     private(set) lazy var connectRegistry = PeripheralTaskRegistry<ConnectTaskController>(timeoutQueue: queueIdentifier)
     private lazy var servicesWithCharacteristicsDiscoveryRegistry = PeripheralTaskRegistry<ServicesWithCharacteristicsDiscoveryTaskController>(timeoutQueue: queueIdentifier)
     private lazy var characteristicNotifyRegistry = PeripheralTaskRegistry<CharacteristicNotifyTaskController>(timeoutQueue: queueIdentifier)
     private lazy var characteristicWriteRegistry = PeripheralTaskRegistry<CharacteristicWriteTaskController>(timeoutQueue: queueIdentifier)
     private lazy var readRssiRegistry = PeripheralTaskRegistry<ReadRssiTaskController>(timeoutQueue: queueIdentifier)
+
+    // Write without response
+    private var pendingWritesWithoutResponse = [PeripheralID: [PendingWriteWithoutResponse]]()
+    private var writeWithoutResponseFlows = [PeripheralID: WriteWithoutResponseFlowControl]()
+    private var writeWithoutResponseWatchdogs = [PeripheralID: DispatchWorkItem]()
+    private static let writeWithoutResponseWatchdogTimeout: DispatchTimeInterval = .milliseconds(
+        WriteWithoutResponseFlowControl.defaultWatchdogTimeoutMs
+    )
+
+    // Auto-reconnect
     private var reconnectWorkItems = [PeripheralID: DispatchWorkItem]()
     private var reconnectIntents = [PeripheralID: ServicesWithCharacteristicsToDiscover]()
     private var manualDisconnects = Set<PeripheralID>()
     private static let autoReconnectDelayInSeconds: TimeInterval = 1.5
+
+    // State restoration
     private static let restoreIdentifier = "com.signifiy.hue.flutterreactiveble.central.restoration"
 
     init(
@@ -82,7 +101,7 @@ final class Central {
                 case .connected:
                     central.cancelPendingReconnect(for: peripheral.identifier)
                     central.manualDisconnects.remove(peripheral.identifier)
-                    break
+                    central.clearWriteWithoutResponseState(for: peripheral.identifier)
                 case .failedToConnect(let error), .disconnected(let error):
                     central.eject(peripheral, error: error ?? PluginError.connectionLost)
                     central.scheduleAutoReconnectIfNeeded(for: peripheral.identifier)
@@ -151,6 +170,10 @@ final class Central {
                     key: peripheral.identifier,
                     action: { $0.handleReadRssi(rssi: rssi, error: error) }
                 )
+            },
+            onReadyToSendWriteWithoutResponse: papply(weak: self) { central, peripheral in
+                central.updateWriteWithoutResponseFlow(for: peripheral.identifier) { $0.didBecomeReady() }
+                central.flushPendingWritesWithoutResponse(for: peripheral)
             }
         )
 
@@ -165,6 +188,8 @@ final class Central {
             options: options
         )
     }
+
+    // Scanning
 
     var state: CBManagerState {
         performSync {
@@ -188,6 +213,8 @@ final class Central {
             isScanning = false
         }
     }
+
+    // Connection
 
     func connect(to peripheralID: PeripheralID, discover servicesWithCharacteristicsToDiscover: ServicesWithCharacteristicsToDiscover, timeout: TimeInterval?) throws {
         try performSync {
@@ -281,6 +308,8 @@ final class Central {
         }
     }
 
+    // Discovery
+
     func discoverServicesWithCharacteristics(
         for peripheralID: PeripheralID,
         discover servicesWithCharacteristicsToDiscover: ServicesWithCharacteristicsToDiscover,
@@ -320,6 +349,8 @@ final class Central {
             action: { $0.start(peripheral: peripheral) }
         )
     }
+
+    // GATT: notify / read / write-with-response
 
     func turnNotifications(_ state: OnOff, for characteristicInstance: CharacteristicInstance, completion: @escaping CharacteristicNotifyCompletionHandler) throws {
         try performSync {
@@ -389,9 +420,12 @@ final class Central {
         }
     }
 
+    // Write without response
+
     func writeWithoutResponse(
         value: Data,
-        characteristic characteristicInstance: CharacteristicInstance
+        characteristic characteristicInstance: CharacteristicInstance,
+        completion: @escaping CharacteristicWriteCompletionHandler
     ) throws {
         try performSync {
             let characteristic = try resolve(characteristic: characteristicInstance)
@@ -399,12 +433,140 @@ final class Central {
             guard characteristic.properties.contains(.writeWithoutResponse)
             else { throw Failure.notWritable(characteristicInstance) }
 
-            guard let response = characteristic.service?.peripheral?.writeValue(value, for: characteristic, type: .withoutResponse)
-            else { throw Failure.characteristicNotFound(characteristicInstance) }
+            guard let peripheral = characteristic.service?.peripheral
+            else { throw Failure.peripheralIsUnknown(characteristicInstance.peripheralID) }
 
-            return response
+            var queue = pendingWritesWithoutResponse[peripheral.identifier] ?? []
+            queue.append(PendingWriteWithoutResponse(
+                value: value,
+                characteristicInstance: characteristicInstance,
+                completion: completion
+            ))
+            pendingWritesWithoutResponse[peripheral.identifier] = queue
+
+            updateWriteWithoutResponseFlow(for: peripheral.identifier) { $0.enqueue() }
+            flushPendingWritesWithoutResponse(for: peripheral)
         }
     }
+
+    /// Drains the per-peripheral FIFO. Completion = handed to CoreBluetooth, not a peripheral ACK.
+    private func flushPendingWritesWithoutResponse(for peripheral: CBPeripheral) {
+        let peripheralID = peripheral.identifier
+
+        while true {
+            guard var queue = pendingWritesWithoutResponse[peripheralID], !queue.isEmpty else {
+                cancelWriteWithoutResponseWatchdog(for: peripheralID)
+                return
+            }
+
+            let action = updateWriteWithoutResponseFlow(for: peripheralID) {
+                $0.nextDrainAction(canSend: peripheral.canSendWriteWithoutResponse)
+            }
+
+            switch action {
+            case .idle:
+                cancelWriteWithoutResponseWatchdog(for: peripheralID)
+                return
+            case .waitForReady:
+                armWriteWithoutResponseWatchdog(for: peripheral)
+                return
+            case .kickstart, .send, .retryAfterWatchdog:
+                sendNextWriteWithoutResponse(from: &queue, peripheral: peripheral)
+                updateWriteWithoutResponseFlow(for: peripheralID) { $0.didSend() }
+                pendingWritesWithoutResponse[peripheralID] = queue.isEmpty ? nil : queue
+                if queue.isEmpty {
+                    cancelWriteWithoutResponseWatchdog(for: peripheralID)
+                }
+            case .failHeadTimedOut:
+                return
+            }
+        }
+    }
+
+    private func sendNextWriteWithoutResponse(
+        from queue: inout [PendingWriteWithoutResponse],
+        peripheral: CBPeripheral
+    ) {
+        let pending = queue.removeFirst()
+        do {
+            let characteristic = try resolve(characteristic: pending.characteristicInstance)
+            peripheral.writeValue(pending.value, for: characteristic, type: .withoutResponse)
+            pending.completion(self, pending.characteristicInstance, nil)
+        } catch {
+            pending.completion(self, pending.characteristicInstance, error)
+        }
+    }
+
+    private func armWriteWithoutResponseWatchdog(for peripheral: CBPeripheral) {
+        let peripheralID = peripheral.identifier
+        cancelWriteWithoutResponseWatchdog(for: peripheralID)
+
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.handleWriteWithoutResponseWatchdog(for: peripheral)
+        }
+        writeWithoutResponseWatchdogs[peripheralID] = workItem
+        queueIdentifier.asyncAfter(
+            deadline: .now() + Self.writeWithoutResponseWatchdogTimeout,
+            execute: workItem
+        )
+    }
+
+    private func cancelWriteWithoutResponseWatchdog(for peripheralID: PeripheralID) {
+        writeWithoutResponseWatchdogs[peripheralID]?.cancel()
+        writeWithoutResponseWatchdogs[peripheralID] = nil
+    }
+
+    private func handleWriteWithoutResponseWatchdog(for peripheral: CBPeripheral) {
+        performSync {
+            let peripheralID = peripheral.identifier
+            writeWithoutResponseWatchdogs[peripheralID] = nil
+
+            guard var queue = pendingWritesWithoutResponse[peripheralID], !queue.isEmpty else {
+                return
+            }
+
+            let action = updateWriteWithoutResponseFlow(for: peripheralID) {
+                $0.watchdogFired(canSend: peripheral.canSendWriteWithoutResponse)
+            }
+
+            switch action {
+            case .retryAfterWatchdog, .send, .kickstart:
+                flushPendingWritesWithoutResponse(for: peripheral)
+            case .failHeadTimedOut:
+                let timedOut = queue.removeFirst()
+                updateWriteWithoutResponseFlow(for: peripheralID) { $0.didFailHeadTimedOut() }
+                pendingWritesWithoutResponse[peripheralID] = queue.isEmpty ? nil : queue
+                timedOut.completion(self, timedOut.characteristicInstance, BleWriteError.writeWithoutResponseTimedOut)
+                flushPendingWritesWithoutResponse(for: peripheral)
+            case .waitForReady, .idle:
+                break
+            }
+        }
+    }
+
+    private func clearWriteWithoutResponseState(for peripheralID: PeripheralID) {
+        cancelWriteWithoutResponseWatchdog(for: peripheralID)
+        writeWithoutResponseFlows[peripheralID] = nil
+    }
+
+    @discardableResult
+    private func updateWriteWithoutResponseFlow<T>(
+        for peripheralID: PeripheralID,
+        _ body: (inout WriteWithoutResponseFlowControl) -> T
+    ) -> T {
+        var flow = writeWithoutResponseFlows[peripheralID] ?? WriteWithoutResponseFlowControl()
+        let result = body(&flow)
+        writeWithoutResponseFlows[peripheralID] = flow
+        return result
+    }
+
+    private struct PendingWriteWithoutResponse {
+        let value: Data
+        let characteristicInstance: CharacteristicInstance
+        let completion: CharacteristicWriteCompletionHandler
+    }
+
+    // RSSI / MTU
 
     func maximumWriteValueLength(for peripheral: PeripheralID, type: CBCharacteristicWriteType) throws -> Int {
         try performSync {
@@ -432,6 +594,8 @@ final class Central {
         }
     }
 
+    // Lifecycle
+
     func shutdown(_ completion: @escaping () -> Void) {
         queueIdentifier.async { [weak self] in
             guard let self else {
@@ -450,6 +614,15 @@ final class Central {
             self.reconnectWorkItems.removeAll()
             self.reconnectIntents.removeAll()
             self.manualDisconnects.removeAll()
+
+            let shutdownError = PluginError.connectionLost
+            self.writeWithoutResponseWatchdogs.values.forEach { $0.cancel() }
+            self.writeWithoutResponseWatchdogs.removeAll()
+            self.writeWithoutResponseFlows.removeAll()
+            self.pendingWritesWithoutResponse.values.flatMap { $0 }.forEach {
+                $0.completion(self, $0.characteristicInstance, shutdownError)
+            }
+            self.pendingWritesWithoutResponse.removeAll()
             self.activePeripherals.values.forEach(self.centralManager.cancelPeripheralConnection)
             self.activePeripherals.removeAll()
 
@@ -477,19 +650,14 @@ final class Central {
             in: peripheral.identifier,
             action: { $0.cancel(error: error) }
         )
+
+        if let pending = pendingWritesWithoutResponse.removeValue(forKey: peripheral.identifier) {
+            pending.forEach { $0.completion(self, $0.characteristicInstance, error) }
+        }
+        clearWriteWithoutResponseState(for: peripheral.identifier)
     }
 
-    private func handleRestoredPeripherals(_ peripherals: [CBPeripheral]) {
-        guard !peripherals.isEmpty else {
-            return
-        }
-
-        peripherals.forEach { peripheral in
-            peripheral.delegate = peripheralDelegate
-            activePeripherals[peripheral.identifier] = peripheral
-            scheduleAutoReconnectIfNeeded(for: peripheral.identifier)
-        }
-    }
+    // Auto-reconnect
 
     private func cancelPendingReconnect(for peripheralID: PeripheralID) {
         performSync {
@@ -552,13 +720,29 @@ final class Central {
         }
     }
 
+    // State restoration
+
+    private func handleRestoredPeripherals(_ peripherals: [CBPeripheral]) {
+        guard !peripherals.isEmpty else {
+            return
+        }
+
+        peripherals.forEach { peripheral in
+            peripheral.delegate = peripheralDelegate
+            activePeripherals[peripheral.identifier] = peripheral
+            scheduleAutoReconnectIfNeeded(for: peripheral.identifier)
+        }
+    }
+
     private func handleRestoredScan(_ restoredScanServices: [ServiceID]?) {
-        guard let restoredScanServices = restoredScanServices else {
+        guard restoredScanServices != nil else {
             return
         }
 
         isScanning = true
     }
+
+    // Resolve helpers
 
     private func resolve(known peripheralID: PeripheralID) throws -> CBPeripheral {
         guard let peripheral = centralManager.retrievePeripherals(withIdentifiers: [peripheralID]).first
@@ -588,7 +772,7 @@ final class Central {
 
         let service = filteredServices[serviceIndex]
 
-        let filteredCharacteristics = service.characteristics?.filter {$0.uuid == characteristicInstance.id} ?? []
+        let filteredCharacteristics = service.characteristics?.filter { $0.uuid == characteristicInstance.id } ?? []
         let characteristicsIndex = Int(characteristicInstance.instanceID) ?? 0
 
         guard characteristicsIndex >= 0, characteristicsIndex < filteredCharacteristics.count
@@ -596,6 +780,8 @@ final class Central {
 
         return filteredCharacteristics[characteristicsIndex]
     }
+
+    // Queue sync
 
     private func performSync<T>(_ operation: () throws -> T) rethrows -> T {
         if DispatchQueue.getSpecific(key: queueSpecificKey) == queueSpecificValue {

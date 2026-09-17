@@ -605,26 +605,40 @@ final class PluginController {
             return
         }
 
-        let result: WriteCharacteristicInfo
         do {
             try central.writeWithoutResponse(
                 value: args.value,
-                characteristic: characteristic
+                characteristic: characteristic,
+                completion: { [self] _, _, error in
+                    let result = WriteCharacteristicInfo.with {
+                        $0.characteristic = args.characteristic
+                        if let error = error {
+                            $0.failure = GenericFailure.with {
+                                $0.code = Int32(self.writeCharacteristicFailureCode(for: error).rawValue)
+                                $0.message = "\(error)"
+                            }
+                        }
+                    }
+                    completion(.success(result))
+                }
             )
-            result = WriteCharacteristicInfo.with {
-                $0.characteristic = args.characteristic
-            }
         } catch {
-            result = WriteCharacteristicInfo.with {
+            let result = WriteCharacteristicInfo.with {
                 $0.characteristic = args.characteristic
                 $0.failure = GenericFailure.with {
-                    $0.code = Int32(WriteCharacteristicFailure.unknown.rawValue)
+                    $0.code = Int32(writeCharacteristicFailureCode(for: error).rawValue)
                     $0.message = "\(error)"
                 }
             }
+            completion(.success(result))
         }
+    }
 
-        completion(.success(result))
+    private func writeCharacteristicFailureCode(for error: Error) -> WriteCharacteristicFailure {
+        if error is BleWriteError {
+            return .timedOut
+        }
+        return .unknown
     }
 
     func reportMaximumWriteValueLength(name: String, args: NegotiateMtuRequest, completion: @escaping PlatformMethodCompletionHandler) {
