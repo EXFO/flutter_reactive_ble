@@ -6,6 +6,7 @@ import com.signify.hue.flutterreactiveble.converters.UuidConverter
 import io.flutter.plugin.common.EventChannel
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.Disposable
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.ConcurrentHashMap
 import com.signify.hue.flutterreactiveble.ProtobufModel as pb
 
@@ -33,26 +34,41 @@ class CharNotificationHandler(private val bleClient: com.signify.hue.flutterreac
         unsubscribeFromAllNotifications()
     }
 
-    fun subscribeToNotifications(request: pb.NotifyCharacteristicRequest) {
-        val charUuid =
+    fun subscribeToNotifications(
+        request: pb.NotifyCharacteristicRequest,
+        onSetupComplete: () -> Unit,
+        onSetupError: (Throwable) -> Unit,
+    ) {
+        val characteristicUuid =
             uuidConverter
                 .uuidFromByteArray(request.characteristic.characteristicUuid.data.toByteArray())
+        val setupResultDelivered = AtomicBoolean(false)
         val subscription =
             bleClient.setupNotification(
                 request.characteristic.deviceId,
-                charUuid,
+                characteristicUuid,
                 request.characteristic.characteristicInstanceId.toInt(),
             )
                 .observeOn(AndroidSchedulers.mainThread())
+                .flatMap { notificationValues ->
+                    if (setupResultDelivered.compareAndSet(false, true)) {
+                        onSetupComplete()
+                    }
+                    notificationValues
+                }
+                .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({ value ->
                     handleNotificationValue(request.characteristic, value)
-                }, {
-                    when (it) {
+                }, { error ->
+                    if (setupResultDelivered.compareAndSet(false, true)) {
+                        onSetupError(error)
+                    }
+                    when (error) {
                         is BleDisconnectedException -> {
                             subscriptionMap.remove(request.characteristic)?.dispose()
                         }
                         else -> {
-                            handleNotificationError(request.characteristic, it)
+                            handleNotificationError(request.characteristic, error)
                         }
                     }
                 })
