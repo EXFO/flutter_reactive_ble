@@ -51,4 +51,8 @@ struct EventSink {
             emitOnMain(error)
         }
     }
+
+    func addLog(_ payload: [String: String]) {
+        emitOnMain(payload)
+    }
 }

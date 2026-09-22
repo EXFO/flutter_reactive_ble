@@ -67,10 +67,11 @@ class ProtobufConverterImpl implements ProtobufConverter {
           connectable: _connectableFrom(message.isConnectable),
         ),
         failure: genericFailureFrom(
-            hasFailure: message.hasFailure(),
-            getFailure: () => message.failure,
-            codes: ScanFailure.values,
-            fallback: (rawOrNull) => ScanFailure.unknown),
+          hasFailure: message.hasFailure(),
+          getFailure: () => message.failure,
+          codes: ScanFailure.values,
+          fallback: (rawOrNull) => ScanFailure.unknown,
+        ),
       ),
     );
   }
@@ -96,7 +97,8 @@ class ProtobufConverterImpl implements ProtobufConverter {
 
   @override
   Result<Unit, GenericFailure<ClearGattCacheError>?> clearGattCacheResultFrom(
-      List<int> data) {
+    List<int> data,
+  ) {
     final message = pb.ClearGattCacheInfo.fromBuffer(data);
     return resultFrom(
       getValue: () => const Unit(),
@@ -166,14 +168,14 @@ class ProtobufConverterImpl implements ProtobufConverter {
       pb.NegotiateMtuInfo.fromBuffer(data).mtuSize;
 
   CharacteristicInstance qualifiedCharacteristicFrom(
-          pb.CharacteristicAddress message) =>
-      CharacteristicInstance(
-        characteristicInstanceId: message.characteristicInstanceId,
-        characteristicId: Uuid(message.characteristicUuid.data),
-        serviceInstanceId: message.serviceInstanceId,
-        serviceId: Uuid(message.serviceUuid.data),
-        deviceId: message.deviceId,
-      );
+    pb.CharacteristicAddress message,
+  ) => CharacteristicInstance(
+    characteristicInstanceId: message.characteristicInstanceId,
+    characteristicId: Uuid(message.characteristicUuid.data),
+    serviceInstanceId: message.serviceInstanceId,
+    serviceId: Uuid(message.serviceUuid.data),
+    deviceId: message.deviceId,
+  );
 
   @visibleForTesting
   GenericFailure<T>? genericFailureFrom<T>({
@@ -212,7 +214,8 @@ class ProtobufConverterImpl implements ProtobufConverter {
             .map((c) => Uuid(c.data))
             .toList(growable: false),
         characteristics: service.characteristics
-            .map((c) => DiscoveredCharacteristic(
+            .map(
+              (c) => DiscoveredCharacteristic(
                 characteristicId: Uuid(c.characteristicId.data),
                 serviceId: Uuid(c.serviceId.data),
                 characteristicInstanceId: c.characteristicInstanceId,
@@ -220,7 +223,9 @@ class ProtobufConverterImpl implements ProtobufConverter {
                 isWritableWithResponse: c.isWritableWithResponse,
                 isWritableWithoutResponse: c.isWritableWithoutResponse,
                 isNotifiable: c.isNotifiable,
-                isIndicatable: c.isIndicatable))
+                isIndicatable: c.isIndicatable,
+              ),
+            )
             .toList(growable: false),
         includedServices: service.includedServices
             .map(_convertService)
@@ -231,10 +236,9 @@ class ProtobufConverterImpl implements ProtobufConverter {
   Result<Value, Failure> resultFrom<Value, Failure>({
     required Value Function() getValue,
     required Failure failure,
-  }) =>
-      failure != null
-          ? Result<Value, Failure>.failure(failure)
-          : Result.success(getValue());
+  }) => failure != null
+      ? Result<Value, Failure>.failure(failure)
+      : Result.success(getValue());
 
   Connectable _connectableFrom(pb.IsConnectable status) {
     switch (status.code) {

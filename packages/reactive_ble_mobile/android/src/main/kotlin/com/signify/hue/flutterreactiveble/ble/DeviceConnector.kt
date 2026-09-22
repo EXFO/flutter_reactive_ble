@@ -6,6 +6,7 @@ import com.polidea.rxandroidble2.RxBleCustomOperation
 import com.polidea.rxandroidble2.RxBleDevice
 import com.signify.hue.flutterreactiveble.model.ConnectionState
 import com.signify.hue.flutterreactiveble.model.toConnectionState
+import com.signify.hue.flutterreactiveble.utils.BleLogger
 import com.signify.hue.flutterreactiveble.utils.Duration
 import io.reactivex.Completable
 import io.reactivex.Observable
@@ -81,6 +82,7 @@ internal class DeviceConnector(
         }
 
         val deviceId = device.macAddress
+        BleLogger.info("DeviceConnector", "TearDown: deviceId=$deviceId reason=$reason")
 
         disconnectionDisposable?.dispose()
         disconnectionDisposable = null

@@ -32,7 +32,8 @@ class CharacteristicInstance {
   });
 
   @override
-  String toString() => "$runtimeType(characteristicId: $characteristicId($characteristicInstanceId), "
+  String toString() =>
+      "$runtimeType(characteristicId: $characteristicId($characteristicInstanceId), "
       "serviceId: $serviceId($serviceInstanceId), deviceId: $deviceId)";
 
   @override

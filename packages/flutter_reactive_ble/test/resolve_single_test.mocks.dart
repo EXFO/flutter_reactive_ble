@@ -375,6 +375,35 @@ class MockLogger extends _i1.Mock implements _i3.Logger {
         ),
         returnValueForMissingStub: null,
       );
+  @override
+  void info(Object? message) => super.noSuchMethod(
+        Invocation.method(
+          #info,
+          [message],
+        ),
+        returnValueForMissingStub: null,
+      );
+  @override
+  void warning(Object? message) => super.noSuchMethod(
+        Invocation.method(
+          #warning,
+          [message],
+        ),
+        returnValueForMissingStub: null,
+      );
+  @override
+  void error(
+    Object? message, [
+    Object? error,
+    StackTrace? stackTrace,
+  ]) =>
+      super.noSuchMethod(
+        Invocation.method(
+          #error,
+          [message, error, stackTrace],
+        ),
+        returnValueForMissingStub: null,
+      );
 }
 
 /// A class which mocks [ConnectedDeviceOperation].

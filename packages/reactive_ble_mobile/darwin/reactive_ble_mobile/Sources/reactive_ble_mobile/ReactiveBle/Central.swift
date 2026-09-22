@@ -354,6 +354,14 @@ final class Central {
 
     func turnNotifications(_ state: OnOff, for characteristicInstance: CharacteristicInstance, completion: @escaping CharacteristicNotifyCompletionHandler) throws {
         try performSync {
+            if state == .off {
+                let peripheral = activePeripherals[characteristicInstance.peripheralID]
+                if peripheral == nil || peripheral?.state != .connected {
+                    completion(self, nil)
+                    return
+                }
+            }
+
             let characteristic = try resolve(characteristic: characteristicInstance)
 
             guard [CBCharacteristicProperties.notify, .notifyEncryptionRequired, .indicate, .indicateEncryptionRequired]
@@ -536,6 +544,10 @@ final class Central {
                 let timedOut = queue.removeFirst()
                 updateWriteWithoutResponseFlow(for: peripheralID) { $0.didFailHeadTimedOut() }
                 pendingWritesWithoutResponse[peripheralID] = queue.isEmpty ? nil : queue
+                BleLogger.warning(
+                    "Central",
+                    "WriteWithoutResponseTimedOut: deviceId=\(peripheralID.uuidString) characteristicId=\(timedOut.characteristicInstance.id) queueRemaining=\(queue.count)"
+                )
                 timedOut.completion(self, timedOut.characteristicInstance, BleWriteError.writeWithoutResponseTimedOut)
                 flushPendingWritesWithoutResponse(for: peripheral)
             case .waitForReady, .idle:
@@ -631,6 +643,10 @@ final class Central {
     }
 
     private func eject(_ peripheral: CBPeripheral, error: Error) {
+        BleLogger.warning(
+            "Central",
+            "Eject: deviceId=\(peripheral.identifier.uuidString) error=\(error)"
+        )
         peripheral.delegate = nil
         activePeripherals[peripheral.identifier] = nil
 
@@ -679,6 +695,10 @@ final class Central {
             }
 
             cancelPendingReconnectLocked(for: peripheralID)
+            BleLogger.info(
+                "Central",
+                "AutoReconnectScheduled: deviceId=\(peripheralID.uuidString) delaySeconds=\(Self.autoReconnectDelayInSeconds)"
+            )
             let workItem = DispatchWorkItem { [weak self] in
                 self?.attemptAutoReconnect(for: peripheralID)
             }
@@ -709,12 +729,20 @@ final class Central {
             }
 
             do {
+                BleLogger.info(
+                    "Central",
+                    "AutoReconnectAttempt: deviceId=\(peripheralID.uuidString)"
+                )
                 try connect(
                     to: peripheralID,
                     discover: servicesWithCharacteristicsToDiscover,
                     timeout: nil
                 )
             } catch {
+                BleLogger.warning(
+                    "Central",
+                    "AutoReconnectFailed: deviceId=\(peripheralID.uuidString) error=\(error)"
+                )
                 scheduleAutoReconnectIfNeeded(for: peripheralID)
             }
         }

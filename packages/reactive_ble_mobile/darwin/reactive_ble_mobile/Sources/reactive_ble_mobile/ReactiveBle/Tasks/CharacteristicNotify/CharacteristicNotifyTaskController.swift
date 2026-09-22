@@ -14,6 +14,13 @@ struct CharacteristicNotifyTaskController: PeripheralTaskController {
         guard let peripheral = characteristic.service?.peripheral
         else { return task.with(state: task.state.finished(CharacteristicNotifyError.unExpected)) }
 
+        guard peripheral.state == .connected else {
+            if !task.params.state.isOn {
+                return task.with(state: task.state.finished(nil))
+            }
+            return task.with(state: task.state.finished(CharacteristicNotifyError.unExpected))
+        }
+
         peripheral.setNotifyValue(task.params.state.isOn, for: characteristic)
         return task.with(state: task.state.processing(.applying))
     }

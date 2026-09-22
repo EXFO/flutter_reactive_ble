@@ -28,14 +28,14 @@ class FlutterReactiveBle {
     required DeviceScanner deviceScanner,
     required DeviceConnector deviceConnector,
     required ConnectedDeviceOperation connectedDeviceOperation,
-    required Logger debugLogger,
+    required Logger logger,
     required Future<void> initialization,
     required ReactiveBlePlatform reactiveBlePlatform,
   }) {
     _deviceScanner = deviceScanner;
     _deviceConnector = deviceConnector;
     _connectedDeviceOperator = connectedDeviceOperation;
-    _debugLogger = debugLogger;
+    _logger = logger;
     _initialization = initialization;
     _blePlatform = reactiveBlePlatform;
     _trackStatus();
@@ -95,7 +95,7 @@ class FlutterReactiveBle {
   late DeviceConnector _deviceConnector;
   late ConnectedDeviceOperation _connectedDeviceOperator;
   late DeviceScanner _deviceScanner;
-  late Logger _debugLogger;
+  late Logger _logger;
 
   /// Initializes this [FlutterReactiveBle] instance and its platform-specific
   /// counterparts.
@@ -104,16 +104,11 @@ class FlutterReactiveBle {
   /// operation is triggered.
   Future<void> initialize() async {
     if (_initialization == null) {
-      _debugLogger = DebugLogger(
-        'REACTIVE_BLE',
-        print,
-      );
+      _logger = DebugLogger();
 
       if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
         ReactiveBlePlatform.instance =
-            const ReactiveBleMobilePlatformFactory().create(
-          logger: _debugLogger,
-        );
+            const ReactiveBleMobilePlatformFactory().create(logger: _logger);
       }
 
       _blePlatform = ReactiveBlePlatform.instance;
@@ -495,10 +490,27 @@ class FlutterReactiveBle {
   Future<Characteristic> resolveSingle(
       QualifiedCharacteristic characteristic) async {
     final chars = (await resolve(characteristic)).toList();
-    if (chars.isEmpty) throw CharacteristicNotFoundException(characteristic);
-    if (chars.length > 1) throw MultipleCharacteristicException(characteristic);
+    if (chars.isEmpty) {
+      _logger.error(
+        'CharacteristicNotFound: deviceId=${characteristic.deviceId}, '
+        'serviceId=${characteristic.serviceId}, '
+        'characteristicId=${characteristic.characteristicId}',
+      );
+      throw CharacteristicNotFoundException(characteristic);
+    }
+    if (chars.length > 1) {
+      _logger.error(
+        'MultipleCharacteristicsMatched: deviceId=${characteristic.deviceId}, '
+        'serviceId=${characteristic.serviceId}, '
+        'characteristicId=${characteristic.characteristicId}',
+      );
+      throw MultipleCharacteristicException(characteristic);
+    }
     final characteristicInstance = chars.single;
     if (!characteristicInstance._valid) {
+      _logger.warning(
+        'CharacteristicConnectionLost: deviceId=${characteristic.deviceId}',
+      );
       throw CharacteristicConnectionLostException(characteristic);
     }
     return characteristicInstance;
@@ -508,9 +520,9 @@ class FlutterReactiveBle {
   ///
   /// Use [LogLevel.verbose] for full debug output. Make sure to  run this only for debugging purposes.
   /// Use [LogLevel.none] to disable logging. This is also the default.
-  set logLevel(LogLevel logLevel) => _debugLogger.logLevel = logLevel;
+  set logLevel(LogLevel logLevel) => _logger.logLevel = logLevel;
 
-  LogLevel get logLevel => _debugLogger.logLevel;
+  LogLevel get logLevel => _logger.logLevel;
 }
 
 /// An instance of this object should not be used after its device has lost its connection.

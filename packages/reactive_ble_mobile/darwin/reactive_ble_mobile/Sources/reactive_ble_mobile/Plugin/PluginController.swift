@@ -154,6 +154,17 @@ final class PluginController {
                     return
                 case .failedToConnect(let underlyingError), .disconnected(let underlyingError):
                     failure = underlyingError.map { (.failedToConnect, "\($0)") }
+                    if let underlyingError = underlyingError {
+                        BleLogger.error(
+                            "PluginController",
+                            "ConnectionError: deviceId=\(peripheral.identifier.uuidString): \(underlyingError)"
+                        )
+                    } else {
+                        BleLogger.info(
+                            "PluginController",
+                            "ConnectionChanged: deviceId=\(peripheral.identifier.uuidString) change=\(change)"
+                        )
+                    }
                 }
 
                 let message = DeviceInfo.with {
@@ -179,10 +190,19 @@ final class PluginController {
                     $0.id = peripheral.identifier.uuidString
                     $0.connectionState = encode(peripheral.state)
                     if !errors.isEmpty {
+                        BleLogger.error(
+                            "PluginController",
+                            "DiscoverServicesFailed: deviceId=\(peripheral.identifier.uuidString): \(errors.map(String.init(describing:)).joined(separator: "; "))"
+                        )
                         $0.failure = GenericFailure.with {
                             $0.code = Int32(ConnectionFailure.unknown.rawValue)
                             $0.message = errors.map(String.init(describing:)).joined(separator: "\n")
                         }
+                    } else {
+                        BleLogger.info(
+                            "PluginController",
+                            "Connected: deviceId=\(peripheral.identifier.uuidString)"
+                        )
                     }
                 }
 
@@ -288,6 +308,11 @@ final class PluginController {
             completion(.failure(PluginError.invalidMethodCall(method: name, details: "\"deviceID\" is invalid").asFlutterError))
             return
         }
+
+        BleLogger.info(
+            "PluginController",
+            "ConnectionStart: deviceId=\(args.deviceID)"
+        )
 
         let servicesWithCharacteristicsToDiscover: ServicesWithCharacteristicsToDiscover
         if args.hasServicesWithCharacteristicsToDiscover {
@@ -512,7 +537,7 @@ final class PluginController {
                 }
             })
         } catch {
-            completion(.failure(PluginError.unknown(error).asFlutterError))
+            completion(.success(nil))
         }
     }
 
@@ -794,9 +819,9 @@ final class PluginController {
         guard overflow > 0 else {
             return
         }
-        print(
-            "reactive_ble_mobile: dropped \(overflow) oldest buffered \(streamName) event(s) " +
-                "(limit \(Self.maxBufferedEvents))"
+        BleLogger.warning(
+            "PluginController",
+            "BufferedEventsDropped: stream=\(streamName) overflow=\(overflow) limit=\(Self.maxBufferedEvents)"
         )
         buffer.removeFirst(overflow)
     }

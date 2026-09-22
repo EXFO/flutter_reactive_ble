@@ -1,6 +1,7 @@
 package com.signify.hue.flutterreactiveble.channelhandlers
 
 import com.signify.hue.flutterreactiveble.converters.ProtobufMessageConverter
+import com.signify.hue.flutterreactiveble.utils.BleLogger
 import com.signify.hue.flutterreactiveble.utils.Duration
 import io.flutter.plugin.common.EventChannel
 import io.reactivex.android.schedulers.AndroidSchedulers
@@ -30,6 +31,10 @@ class DeviceConnectionHandler(private val bleClient: com.signify.hue.flutterreac
     }
 
     fun connectToDevice(connectToDeviceMessage: pb.ConnectToDeviceRequest) {
+        BleLogger.info(
+            "DeviceConnectionHandler",
+            "ConnectionStart: deviceId=${connectToDeviceMessage.deviceId}",
+        )
         bleClient.connectToDevice(
             connectToDeviceMessage.deviceId,
             Duration(connectToDeviceMessage.timeoutInMs.toLong(), TimeUnit.MILLISECONDS),
@@ -51,9 +56,21 @@ class DeviceConnectionHandler(private val bleClient: com.signify.hue.flutterreac
             .subscribe { update ->
                 when (update) {
                     is com.signify.hue.flutterreactiveble.ble.ConnectionUpdateSuccess -> {
+                        if (update.connectionState ==
+                            com.signify.hue.flutterreactiveble.model.ConnectionState.CONNECTED.code
+                        ) {
+                            BleLogger.info(
+                                "DeviceConnectionHandler",
+                                "Connected: deviceId=${update.deviceId}",
+                            )
+                        }
                         handleDeviceConnectionUpdateResult(converter.convertToDeviceInfo(update))
                     }
                     is com.signify.hue.flutterreactiveble.ble.ConnectionUpdateError -> {
+                        BleLogger.error(
+                            "DeviceConnectionHandler",
+                            "ConnectionError: deviceId=${update.deviceId}: ${update.errorMessage}",
+                        )
                         handleDeviceConnectionUpdateResult(
                             converter.convertConnectionErrorToDeviceInfo(update.deviceId, update.errorMessage),
                         )

@@ -16,7 +16,7 @@ void main() {
       group('And servicesToDiscover is not null', () {
         setUp(() {
           servicesToDiscover = {
-            Uuid.parse('FEFE'): [Uuid.parse('FEFE')]
+            Uuid.parse('FEFE'): [Uuid.parse('FEFE')],
           };
         });
 
@@ -24,7 +24,10 @@ void main() {
           setUp(() {
             timeout = const Duration(seconds: 2);
             result = _sut.createConnectToDeviceArgs(
-                deviceId, servicesToDiscover, timeout);
+              deviceId,
+              servicesToDiscover,
+              timeout,
+            );
           });
 
           test('It converts deviceId', () {
@@ -40,8 +43,9 @@ void main() {
             final expectedServiceWithChar = pb.ServiceWithCharacteristics()
               ..serviceId = uuid
               ..characteristics.add(uuid);
-            expect(result.servicesWithCharacteristicsToDiscover.items,
-                [expectedServiceWithChar]);
+            expect(result.servicesWithCharacteristicsToDiscover.items, [
+              expectedServiceWithChar,
+            ]);
           });
         });
 
@@ -49,7 +53,10 @@ void main() {
           setUp(() {
             timeout = null;
             result = _sut.createConnectToDeviceArgs(
-                deviceId, servicesToDiscover, timeout);
+              deviceId,
+              servicesToDiscover,
+              timeout,
+            );
           });
           test('It sets timeout to default value', () {
             expect(result.timeoutInMs, 0);
@@ -61,12 +68,17 @@ void main() {
         setUp(() {
           servicesToDiscover = null;
           result = _sut.createConnectToDeviceArgs(
-              deviceId, servicesToDiscover, timeout);
+            deviceId,
+            servicesToDiscover,
+            timeout,
+          );
         });
 
         test('It converts servicesToDiscover to default', () {
-          expect(result.servicesWithCharacteristicsToDiscover,
-              pb.ServicesWithCharacteristics());
+          expect(
+            result.servicesWithCharacteristicsToDiscover,
+            pb.ServicesWithCharacteristics(),
+          );
         });
       });
     });
@@ -278,7 +290,7 @@ void main() {
         test('It converts services', () {
           expect(result.serviceUuids.map((e) => e.data), [
             [254, 31],
-            [254, 170]
+            [254, 170],
           ]);
         });
 

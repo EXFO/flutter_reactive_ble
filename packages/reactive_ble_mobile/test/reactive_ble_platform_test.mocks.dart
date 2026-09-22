@@ -33,57 +33,32 @@ import 'package:reactive_ble_platform_interface/reactive_ble_platform_interface.
 
 class _FakeConnectToDeviceRequest_0 extends _i1.SmartFake
     implements _i2.ConnectToDeviceRequest {
-  _FakeConnectToDeviceRequest_0(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  _FakeConnectToDeviceRequest_0(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
 class _FakeDisconnectFromDeviceRequest_1 extends _i1.SmartFake
     implements _i2.DisconnectFromDeviceRequest {
-  _FakeDisconnectFromDeviceRequest_1(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  _FakeDisconnectFromDeviceRequest_1(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
 class _FakeReadCharacteristicRequest_2 extends _i1.SmartFake
     implements _i2.ReadCharacteristicRequest {
-  _FakeReadCharacteristicRequest_2(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  _FakeReadCharacteristicRequest_2(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
 class _FakeWriteCharacteristicRequest_3 extends _i1.SmartFake
     implements _i2.WriteCharacteristicRequest {
-  _FakeWriteCharacteristicRequest_3(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  _FakeWriteCharacteristicRequest_3(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
 class _FakeNotifyCharacteristicRequest_4 extends _i1.SmartFake
     implements _i2.NotifyCharacteristicRequest {
-  _FakeNotifyCharacteristicRequest_4(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  _FakeNotifyCharacteristicRequest_4(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
 class _FakeNotifyNoMoreCharacteristicRequest_5 extends _i1.SmartFake
@@ -91,21 +66,13 @@ class _FakeNotifyNoMoreCharacteristicRequest_5 extends _i1.SmartFake
   _FakeNotifyNoMoreCharacteristicRequest_5(
     Object parent,
     Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  ) : super(parent, parentInvocation);
 }
 
 class _FakeNegotiateMtuRequest_6 extends _i1.SmartFake
     implements _i2.NegotiateMtuRequest {
-  _FakeNegotiateMtuRequest_6(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  _FakeNegotiateMtuRequest_6(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
 class _FakeChangeConnectionPriorityRequest_7 extends _i1.SmartFake
@@ -113,140 +80,77 @@ class _FakeChangeConnectionPriorityRequest_7 extends _i1.SmartFake
   _FakeChangeConnectionPriorityRequest_7(
     Object parent,
     Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  ) : super(parent, parentInvocation);
 }
 
 class _FakeScanForDevicesRequest_8 extends _i1.SmartFake
     implements _i2.ScanForDevicesRequest {
-  _FakeScanForDevicesRequest_8(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  _FakeScanForDevicesRequest_8(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
 class _FakeClearGattCacheRequest_9 extends _i1.SmartFake
     implements _i2.ClearGattCacheRequest {
-  _FakeClearGattCacheRequest_9(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  _FakeClearGattCacheRequest_9(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
 class _FakeDiscoverServicesRequest_10 extends _i1.SmartFake
     implements _i2.DiscoverServicesRequest {
-  _FakeDiscoverServicesRequest_10(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  _FakeDiscoverServicesRequest_10(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
 class _FakeReadRssiRequest_11 extends _i1.SmartFake
     implements _i2.ReadRssiRequest {
-  _FakeReadRssiRequest_11(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  _FakeReadRssiRequest_11(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
 class _FakeScanResult_12 extends _i1.SmartFake implements _i3.ScanResult {
-  _FakeScanResult_12(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  _FakeScanResult_12(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
 class _FakeConnectionStateUpdate_13 extends _i1.SmartFake
     implements _i3.ConnectionStateUpdate {
-  _FakeConnectionStateUpdate_13(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  _FakeConnectionStateUpdate_13(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
 class _FakeResult_14<Value, Failure> extends _i1.SmartFake
     implements _i3.Result<Value, Failure> {
-  _FakeResult_14(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  _FakeResult_14(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
 class _FakeCharacteristicValue_15 extends _i1.SmartFake
     implements _i3.CharacteristicValue {
-  _FakeCharacteristicValue_15(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  _FakeCharacteristicValue_15(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
 class _FakeWriteCharacteristicInfo_16 extends _i1.SmartFake
     implements _i3.WriteCharacteristicInfo {
-  _FakeWriteCharacteristicInfo_16(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  _FakeWriteCharacteristicInfo_16(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
 class _FakeConnectionPriorityInfo_17 extends _i1.SmartFake
     implements _i3.ConnectionPriorityInfo {
-  _FakeConnectionPriorityInfo_17(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  _FakeConnectionPriorityInfo_17(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
 class _FakeMethodCodec_18 extends _i1.SmartFake implements _i4.MethodCodec {
-  _FakeMethodCodec_18(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  _FakeMethodCodec_18(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
 class _FakeBinaryMessenger_19 extends _i1.SmartFake
     implements _i5.BinaryMessenger {
-  _FakeBinaryMessenger_19(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
+  _FakeBinaryMessenger_19(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
 }
 
 /// A class which mocks [ArgsToProtobufConverter].
@@ -265,60 +169,51 @@ class MockArgsToProtobufConverter extends _i1.Mock
     Duration? connectionTimeout,
   ) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #createConnectToDeviceArgs,
-          [
-            id,
-            servicesWithCharacteristicsToDiscover,
-            connectionTimeout,
-          ],
-        ),
-        returnValue: _FakeConnectToDeviceRequest_0(
-          this,
-          Invocation.method(
-            #createConnectToDeviceArgs,
-            [
+            Invocation.method(#createConnectToDeviceArgs, [
               id,
               servicesWithCharacteristicsToDiscover,
               connectionTimeout,
-            ],
-          ),
-        ),
-      ) as _i2.ConnectToDeviceRequest);
+            ]),
+            returnValue: _FakeConnectToDeviceRequest_0(
+              this,
+              Invocation.method(#createConnectToDeviceArgs, [
+                id,
+                servicesWithCharacteristicsToDiscover,
+                connectionTimeout,
+              ]),
+            ),
+          )
+          as _i2.ConnectToDeviceRequest);
 
   @override
   _i2.DisconnectFromDeviceRequest createDisconnectDeviceArgs(
-          String? deviceId) =>
+    String? deviceId,
+  ) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #createDisconnectDeviceArgs,
-          [deviceId],
-        ),
-        returnValue: _FakeDisconnectFromDeviceRequest_1(
-          this,
-          Invocation.method(
-            #createDisconnectDeviceArgs,
-            [deviceId],
-          ),
-        ),
-      ) as _i2.DisconnectFromDeviceRequest);
+            Invocation.method(#createDisconnectDeviceArgs, [deviceId]),
+            returnValue: _FakeDisconnectFromDeviceRequest_1(
+              this,
+              Invocation.method(#createDisconnectDeviceArgs, [deviceId]),
+            ),
+          )
+          as _i2.DisconnectFromDeviceRequest);
 
   @override
   _i2.ReadCharacteristicRequest createReadCharacteristicRequest(
-          _i3.CharacteristicInstance? characteristic) =>
+    _i3.CharacteristicInstance? characteristic,
+  ) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #createReadCharacteristicRequest,
-          [characteristic],
-        ),
-        returnValue: _FakeReadCharacteristicRequest_2(
-          this,
-          Invocation.method(
-            #createReadCharacteristicRequest,
-            [characteristic],
-          ),
-        ),
-      ) as _i2.ReadCharacteristicRequest);
+            Invocation.method(#createReadCharacteristicRequest, [
+              characteristic,
+            ]),
+            returnValue: _FakeReadCharacteristicRequest_2(
+              this,
+              Invocation.method(#createReadCharacteristicRequest, [
+                characteristic,
+              ]),
+            ),
+          )
+          as _i2.ReadCharacteristicRequest);
 
   @override
   _i2.WriteCharacteristicRequest createWriteCharacteristicRequest(
@@ -326,58 +221,53 @@ class MockArgsToProtobufConverter extends _i1.Mock
     List<int>? value,
   ) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #createWriteCharacteristicRequest,
-          [
-            characteristic,
-            value,
-          ],
-        ),
-        returnValue: _FakeWriteCharacteristicRequest_3(
-          this,
-          Invocation.method(
-            #createWriteCharacteristicRequest,
-            [
+            Invocation.method(#createWriteCharacteristicRequest, [
               characteristic,
               value,
-            ],
-          ),
-        ),
-      ) as _i2.WriteCharacteristicRequest);
+            ]),
+            returnValue: _FakeWriteCharacteristicRequest_3(
+              this,
+              Invocation.method(#createWriteCharacteristicRequest, [
+                characteristic,
+                value,
+              ]),
+            ),
+          )
+          as _i2.WriteCharacteristicRequest);
 
   @override
   _i2.NotifyCharacteristicRequest createNotifyCharacteristicRequest(
-          _i3.CharacteristicInstance? characteristic) =>
+    _i3.CharacteristicInstance? characteristic,
+  ) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #createNotifyCharacteristicRequest,
-          [characteristic],
-        ),
-        returnValue: _FakeNotifyCharacteristicRequest_4(
-          this,
-          Invocation.method(
-            #createNotifyCharacteristicRequest,
-            [characteristic],
-          ),
-        ),
-      ) as _i2.NotifyCharacteristicRequest);
+            Invocation.method(#createNotifyCharacteristicRequest, [
+              characteristic,
+            ]),
+            returnValue: _FakeNotifyCharacteristicRequest_4(
+              this,
+              Invocation.method(#createNotifyCharacteristicRequest, [
+                characteristic,
+              ]),
+            ),
+          )
+          as _i2.NotifyCharacteristicRequest);
 
   @override
   _i2.NotifyNoMoreCharacteristicRequest createNotifyNoMoreCharacteristicRequest(
-          _i3.CharacteristicInstance? characteristic) =>
+    _i3.CharacteristicInstance? characteristic,
+  ) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #createNotifyNoMoreCharacteristicRequest,
-          [characteristic],
-        ),
-        returnValue: _FakeNotifyNoMoreCharacteristicRequest_5(
-          this,
-          Invocation.method(
-            #createNotifyNoMoreCharacteristicRequest,
-            [characteristic],
-          ),
-        ),
-      ) as _i2.NotifyNoMoreCharacteristicRequest);
+            Invocation.method(#createNotifyNoMoreCharacteristicRequest, [
+              characteristic,
+            ]),
+            returnValue: _FakeNotifyNoMoreCharacteristicRequest_5(
+              this,
+              Invocation.method(#createNotifyNoMoreCharacteristicRequest, [
+                characteristic,
+              ]),
+            ),
+          )
+          as _i2.NotifyNoMoreCharacteristicRequest);
 
   @override
   _i2.NegotiateMtuRequest createNegotiateMtuRequest(
@@ -385,24 +275,13 @@ class MockArgsToProtobufConverter extends _i1.Mock
     int? mtu,
   ) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #createNegotiateMtuRequest,
-          [
-            deviceId,
-            mtu,
-          ],
-        ),
-        returnValue: _FakeNegotiateMtuRequest_6(
-          this,
-          Invocation.method(
-            #createNegotiateMtuRequest,
-            [
-              deviceId,
-              mtu,
-            ],
-          ),
-        ),
-      ) as _i2.NegotiateMtuRequest);
+            Invocation.method(#createNegotiateMtuRequest, [deviceId, mtu]),
+            returnValue: _FakeNegotiateMtuRequest_6(
+              this,
+              Invocation.method(#createNegotiateMtuRequest, [deviceId, mtu]),
+            ),
+          )
+          as _i2.NegotiateMtuRequest);
 
   @override
   _i2.ChangeConnectionPriorityRequest createChangeConnectionPrioRequest(
@@ -410,24 +289,19 @@ class MockArgsToProtobufConverter extends _i1.Mock
     _i3.ConnectionPriority? priority,
   ) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #createChangeConnectionPrioRequest,
-          [
-            deviceId,
-            priority,
-          ],
-        ),
-        returnValue: _FakeChangeConnectionPriorityRequest_7(
-          this,
-          Invocation.method(
-            #createChangeConnectionPrioRequest,
-            [
+            Invocation.method(#createChangeConnectionPrioRequest, [
               deviceId,
               priority,
-            ],
-          ),
-        ),
-      ) as _i2.ChangeConnectionPriorityRequest);
+            ]),
+            returnValue: _FakeChangeConnectionPriorityRequest_7(
+              this,
+              Invocation.method(#createChangeConnectionPrioRequest, [
+                deviceId,
+                priority,
+              ]),
+            ),
+          )
+          as _i2.ChangeConnectionPriorityRequest);
 
   @override
   _i2.ScanForDevicesRequest createScanForDevicesRequest({
@@ -436,76 +310,54 @@ class MockArgsToProtobufConverter extends _i1.Mock
     required bool? requireLocationServicesEnabled,
   }) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #createScanForDevicesRequest,
-          [],
-          {
-            #withServices: withServices,
-            #scanMode: scanMode,
-            #requireLocationServicesEnabled: requireLocationServicesEnabled,
-          },
-        ),
-        returnValue: _FakeScanForDevicesRequest_8(
-          this,
-          Invocation.method(
-            #createScanForDevicesRequest,
-            [],
-            {
+            Invocation.method(#createScanForDevicesRequest, [], {
               #withServices: withServices,
               #scanMode: scanMode,
               #requireLocationServicesEnabled: requireLocationServicesEnabled,
-            },
-          ),
-        ),
-      ) as _i2.ScanForDevicesRequest);
+            }),
+            returnValue: _FakeScanForDevicesRequest_8(
+              this,
+              Invocation.method(#createScanForDevicesRequest, [], {
+                #withServices: withServices,
+                #scanMode: scanMode,
+                #requireLocationServicesEnabled: requireLocationServicesEnabled,
+              }),
+            ),
+          )
+          as _i2.ScanForDevicesRequest);
 
   @override
   _i2.ClearGattCacheRequest createClearGattCacheRequest(String? deviceId) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #createClearGattCacheRequest,
-          [deviceId],
-        ),
-        returnValue: _FakeClearGattCacheRequest_9(
-          this,
-          Invocation.method(
-            #createClearGattCacheRequest,
-            [deviceId],
-          ),
-        ),
-      ) as _i2.ClearGattCacheRequest);
+            Invocation.method(#createClearGattCacheRequest, [deviceId]),
+            returnValue: _FakeClearGattCacheRequest_9(
+              this,
+              Invocation.method(#createClearGattCacheRequest, [deviceId]),
+            ),
+          )
+          as _i2.ClearGattCacheRequest);
 
   @override
   _i2.DiscoverServicesRequest createDiscoverServicesRequest(String? deviceId) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #createDiscoverServicesRequest,
-          [deviceId],
-        ),
-        returnValue: _FakeDiscoverServicesRequest_10(
-          this,
-          Invocation.method(
-            #createDiscoverServicesRequest,
-            [deviceId],
-          ),
-        ),
-      ) as _i2.DiscoverServicesRequest);
+            Invocation.method(#createDiscoverServicesRequest, [deviceId]),
+            returnValue: _FakeDiscoverServicesRequest_10(
+              this,
+              Invocation.method(#createDiscoverServicesRequest, [deviceId]),
+            ),
+          )
+          as _i2.DiscoverServicesRequest);
 
   @override
   _i2.ReadRssiRequest createReadRssiRequest(String? deviceId) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #createReadRssiRequest,
-          [deviceId],
-        ),
-        returnValue: _FakeReadRssiRequest_11(
-          this,
-          Invocation.method(
-            #createReadRssiRequest,
-            [deviceId],
-          ),
-        ),
-      ) as _i2.ReadRssiRequest);
+            Invocation.method(#createReadRssiRequest, [deviceId]),
+            returnValue: _FakeReadRssiRequest_11(
+              this,
+              Invocation.method(#createReadRssiRequest, [deviceId]),
+            ),
+          )
+          as _i2.ReadRssiRequest);
 }
 
 /// A class which mocks [ProtobufConverter].
@@ -517,138 +369,107 @@ class MockProtobufConverter extends _i1.Mock implements _i7.ProtobufConverter {
   }
 
   @override
-  _i3.BleStatus bleStatusFrom(List<int>? data) => (super.noSuchMethod(
-        Invocation.method(
-          #bleStatusFrom,
-          [data],
-        ),
-        returnValue: _i3.BleStatus.unknown,
-      ) as _i3.BleStatus);
+  _i3.BleStatus bleStatusFrom(List<int>? data) =>
+      (super.noSuchMethod(
+            Invocation.method(#bleStatusFrom, [data]),
+            returnValue: _i3.BleStatus.unknown,
+          )
+          as _i3.BleStatus);
 
   @override
-  _i3.ScanResult scanResultFrom(List<int>? data) => (super.noSuchMethod(
-        Invocation.method(
-          #scanResultFrom,
-          [data],
-        ),
-        returnValue: _FakeScanResult_12(
-          this,
-          Invocation.method(
-            #scanResultFrom,
-            [data],
-          ),
-        ),
-      ) as _i3.ScanResult);
+  _i3.ScanResult scanResultFrom(List<int>? data) =>
+      (super.noSuchMethod(
+            Invocation.method(#scanResultFrom, [data]),
+            returnValue: _FakeScanResult_12(
+              this,
+              Invocation.method(#scanResultFrom, [data]),
+            ),
+          )
+          as _i3.ScanResult);
 
   @override
   _i3.ConnectionStateUpdate connectionStateUpdateFrom(List<int>? data) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #connectionStateUpdateFrom,
-          [data],
-        ),
-        returnValue: _FakeConnectionStateUpdate_13(
-          this,
-          Invocation.method(
-            #connectionStateUpdateFrom,
-            [data],
-          ),
-        ),
-      ) as _i3.ConnectionStateUpdate);
+            Invocation.method(#connectionStateUpdateFrom, [data]),
+            returnValue: _FakeConnectionStateUpdate_13(
+              this,
+              Invocation.method(#connectionStateUpdateFrom, [data]),
+            ),
+          )
+          as _i3.ConnectionStateUpdate);
 
   @override
   _i3.Result<_i3.Unit, _i3.GenericFailure<_i3.ClearGattCacheError>?>
-      clearGattCacheResultFrom(List<int>? data) => (super.noSuchMethod(
-            Invocation.method(
-              #clearGattCacheResultFrom,
-              [data],
-            ),
-            returnValue: _FakeResult_14<_i3.Unit,
-                _i3.GenericFailure<_i3.ClearGattCacheError>?>(
-              this,
-              Invocation.method(
-                #clearGattCacheResultFrom,
-                [data],
-              ),
-            ),
-          ) as _i3
-              .Result<_i3.Unit, _i3.GenericFailure<_i3.ClearGattCacheError>?>);
+  clearGattCacheResultFrom(List<int>? data) =>
+      (super.noSuchMethod(
+            Invocation.method(#clearGattCacheResultFrom, [data]),
+            returnValue:
+                _FakeResult_14<
+                  _i3.Unit,
+                  _i3.GenericFailure<_i3.ClearGattCacheError>?
+                >(this, Invocation.method(#clearGattCacheResultFrom, [data])),
+          )
+          as _i3.Result<
+            _i3.Unit,
+            _i3.GenericFailure<_i3.ClearGattCacheError>?
+          >);
 
   @override
   _i3.CharacteristicValue characteristicValueFrom(List<int>? data) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #characteristicValueFrom,
-          [data],
-        ),
-        returnValue: _FakeCharacteristicValue_15(
-          this,
-          Invocation.method(
-            #characteristicValueFrom,
-            [data],
-          ),
-        ),
-      ) as _i3.CharacteristicValue);
+            Invocation.method(#characteristicValueFrom, [data]),
+            returnValue: _FakeCharacteristicValue_15(
+              this,
+              Invocation.method(#characteristicValueFrom, [data]),
+            ),
+          )
+          as _i3.CharacteristicValue);
 
   @override
   _i3.WriteCharacteristicInfo writeCharacteristicInfoFrom(List<int>? data) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #writeCharacteristicInfoFrom,
-          [data],
-        ),
-        returnValue: _FakeWriteCharacteristicInfo_16(
-          this,
-          Invocation.method(
-            #writeCharacteristicInfoFrom,
-            [data],
-          ),
-        ),
-      ) as _i3.WriteCharacteristicInfo);
+            Invocation.method(#writeCharacteristicInfoFrom, [data]),
+            returnValue: _FakeWriteCharacteristicInfo_16(
+              this,
+              Invocation.method(#writeCharacteristicInfoFrom, [data]),
+            ),
+          )
+          as _i3.WriteCharacteristicInfo);
 
   @override
   _i3.ConnectionPriorityInfo connectionPriorityInfoFrom(List<int>? data) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #connectionPriorityInfoFrom,
-          [data],
-        ),
-        returnValue: _FakeConnectionPriorityInfo_17(
-          this,
-          Invocation.method(
-            #connectionPriorityInfoFrom,
-            [data],
-          ),
-        ),
-      ) as _i3.ConnectionPriorityInfo);
+            Invocation.method(#connectionPriorityInfoFrom, [data]),
+            returnValue: _FakeConnectionPriorityInfo_17(
+              this,
+              Invocation.method(#connectionPriorityInfoFrom, [data]),
+            ),
+          )
+          as _i3.ConnectionPriorityInfo);
 
   @override
-  int mtuSizeFrom(List<int>? data) => (super.noSuchMethod(
-        Invocation.method(
-          #mtuSizeFrom,
-          [data],
-        ),
-        returnValue: 0,
-      ) as int);
+  int mtuSizeFrom(List<int>? data) =>
+      (super.noSuchMethod(
+            Invocation.method(#mtuSizeFrom, [data]),
+            returnValue: 0,
+          )
+          as int);
 
   @override
   List<_i3.DiscoveredService> discoveredServicesFrom(List<int>? data) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #discoveredServicesFrom,
-          [data],
-        ),
-        returnValue: <_i3.DiscoveredService>[],
-      ) as List<_i3.DiscoveredService>);
+            Invocation.method(#discoveredServicesFrom, [data]),
+            returnValue: <_i3.DiscoveredService>[],
+          )
+          as List<_i3.DiscoveredService>);
 
   @override
-  int readRssiResultFrom(List<int>? data) => (super.noSuchMethod(
-        Invocation.method(
-          #readRssiResultFrom,
-          [data],
-        ),
-        returnValue: 0,
-      ) as int);
+  int readRssiResultFrom(List<int>? data) =>
+      (super.noSuchMethod(
+            Invocation.method(#readRssiResultFrom, [data]),
+            returnValue: 0,
+          )
+          as int);
 }
 
 /// A class which mocks [MethodChannel].
@@ -660,47 +481,39 @@ class MockMethodChannel extends _i1.Mock implements _i8.MethodChannel {
   }
 
   @override
-  String get name => (super.noSuchMethod(
-        Invocation.getter(#name),
-        returnValue: _i9.dummyValue<String>(
-          this,
-          Invocation.getter(#name),
-        ),
-      ) as String);
-
-  @override
-  _i4.MethodCodec get codec => (super.noSuchMethod(
-        Invocation.getter(#codec),
-        returnValue: _FakeMethodCodec_18(
-          this,
-          Invocation.getter(#codec),
-        ),
-      ) as _i4.MethodCodec);
-
-  @override
-  _i5.BinaryMessenger get binaryMessenger => (super.noSuchMethod(
-        Invocation.getter(#binaryMessenger),
-        returnValue: _FakeBinaryMessenger_19(
-          this,
-          Invocation.getter(#binaryMessenger),
-        ),
-      ) as _i5.BinaryMessenger);
-
-  @override
-  _i10.Future<T?> invokeMethod<T>(
-    String? method, [
-    dynamic arguments,
-  ]) =>
+  String get name =>
       (super.noSuchMethod(
-        Invocation.method(
-          #invokeMethod,
-          [
-            method,
-            arguments,
-          ],
-        ),
-        returnValue: _i10.Future<T?>.value(),
-      ) as _i10.Future<T?>);
+            Invocation.getter(#name),
+            returnValue: _i9.dummyValue<String>(this, Invocation.getter(#name)),
+          )
+          as String);
+
+  @override
+  _i4.MethodCodec get codec =>
+      (super.noSuchMethod(
+            Invocation.getter(#codec),
+            returnValue: _FakeMethodCodec_18(this, Invocation.getter(#codec)),
+          )
+          as _i4.MethodCodec);
+
+  @override
+  _i5.BinaryMessenger get binaryMessenger =>
+      (super.noSuchMethod(
+            Invocation.getter(#binaryMessenger),
+            returnValue: _FakeBinaryMessenger_19(
+              this,
+              Invocation.getter(#binaryMessenger),
+            ),
+          )
+          as _i5.BinaryMessenger);
+
+  @override
+  _i10.Future<T?> invokeMethod<T>(String? method, [dynamic arguments]) =>
+      (super.noSuchMethod(
+            Invocation.method(#invokeMethod, [method, arguments]),
+            returnValue: _i10.Future<T?>.value(),
+          )
+          as _i10.Future<T?>);
 
   @override
   _i10.Future<List<T>?> invokeListMethod<T>(
@@ -708,15 +521,10 @@ class MockMethodChannel extends _i1.Mock implements _i8.MethodChannel {
     dynamic arguments,
   ]) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #invokeListMethod,
-          [
-            method,
-            arguments,
-          ],
-        ),
-        returnValue: _i10.Future<List<T>?>.value(),
-      ) as _i10.Future<List<T>?>);
+            Invocation.method(#invokeListMethod, [method, arguments]),
+            returnValue: _i10.Future<List<T>?>.value(),
+          )
+          as _i10.Future<List<T>?>);
 
   @override
   _i10.Future<Map<K, V>?> invokeMapMethod<K, V>(
@@ -724,24 +532,16 @@ class MockMethodChannel extends _i1.Mock implements _i8.MethodChannel {
     dynamic arguments,
   ]) =>
       (super.noSuchMethod(
-        Invocation.method(
-          #invokeMapMethod,
-          [
-            method,
-            arguments,
-          ],
-        ),
-        returnValue: _i10.Future<Map<K, V>?>.value(),
-      ) as _i10.Future<Map<K, V>?>);
+            Invocation.method(#invokeMapMethod, [method, arguments]),
+            returnValue: _i10.Future<Map<K, V>?>.value(),
+          )
+          as _i10.Future<Map<K, V>?>);
 
   @override
   void setMethodCallHandler(
-          _i10.Future<dynamic> Function(_i4.MethodCall)? handler) =>
-      super.noSuchMethod(
-        Invocation.method(
-          #setMethodCallHandler,
-          [handler],
-        ),
-        returnValueForMissingStub: null,
-      );
+    _i10.Future<dynamic> Function(_i4.MethodCall)? handler,
+  ) => super.noSuchMethod(
+    Invocation.method(#setMethodCallHandler, [handler]),
+    returnValueForMissingStub: null,
+  );
 }

@@ -3,6 +3,7 @@ package com.signify.hue.flutterreactiveble.channelhandlers
 import com.polidea.rxandroidble2.exceptions.BleDisconnectedException
 import com.signify.hue.flutterreactiveble.converters.ProtobufMessageConverter
 import com.signify.hue.flutterreactiveble.converters.UuidConverter
+import com.signify.hue.flutterreactiveble.utils.BleLogger
 import io.flutter.plugin.common.EventChannel
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.Disposable
@@ -68,6 +69,10 @@ class CharNotificationHandler(private val bleClient: com.signify.hue.flutterreac
                             subscriptionMap.remove(request.characteristic)?.dispose()
                         }
                         else -> {
+                            BleLogger.error(
+                                "CharNotificationHandler",
+                                "NotificationError: ${error.message}",
+                            )
                             handleNotificationError(request.characteristic, error)
                         }
                     }

@@ -48,16 +48,22 @@ void main() {
 
       test('converts id', () {
         expect(
-            scanresult.result
-                .iif(success: (d) => d.id, failure: (_) => throw Exception()),
-            id);
+          scanresult.result.iif(
+            success: (d) => d.id,
+            failure: (_) => throw Exception(),
+          ),
+          id,
+        );
       });
 
       test('converts name', () {
         expect(
-            scanresult.result
-                .iif(success: (d) => d.name, failure: (_) => throw Exception()),
-            name);
+          scanresult.result.iif(
+            success: (d) => d.name,
+            failure: (_) => throw Exception(),
+          ),
+          name,
+        );
       });
 
       test('converts connectable', () {
@@ -72,38 +78,48 @@ void main() {
 
       test('converts service data', () {
         expect(
-            scanresult.result.iif(
-                success: (d) =>
-                    d.serviceData[Uuid(serviceDataEntry1.serviceUuid.data)],
-                failure: (_) => throw Exception()),
-            serviceDataEntry1.data);
+          scanresult.result.iif(
+            success: (d) =>
+                d.serviceData[Uuid(serviceDataEntry1.serviceUuid.data)],
+            failure: (_) => throw Exception(),
+          ),
+          serviceDataEntry1.data,
+        );
         expect(
-            scanresult.result.iif(
-                success: (d) =>
-                    d.serviceData[Uuid(serviceDataEntry2.serviceUuid.data)],
-                failure: (_) => throw Exception()),
-            serviceDataEntry2.data);
+          scanresult.result.iif(
+            success: (d) =>
+                d.serviceData[Uuid(serviceDataEntry2.serviceUuid.data)],
+            failure: (_) => throw Exception(),
+          ),
+          serviceDataEntry2.data,
+        );
       });
 
       test('converts service uuids', () {
         expect(
-            scanresult.result.iif(
-                success: (d) => d.serviceUuids[0].data,
-                failure: (_) => throw Exception()),
-            serviceUuid1.data);
+          scanresult.result.iif(
+            success: (d) => d.serviceUuids[0].data,
+            failure: (_) => throw Exception(),
+          ),
+          serviceUuid1.data,
+        );
         expect(
-            scanresult.result.iif(
-                success: (d) => d.serviceUuids[1].data,
-                failure: (_) => throw Exception()),
-            serviceUuid2.data);
+          scanresult.result.iif(
+            success: (d) => d.serviceUuids[1].data,
+            failure: (_) => throw Exception(),
+          ),
+          serviceUuid2.data,
+        );
       });
 
       test('converts manufacturer data', () {
         expect(
-            scanresult.result.iif(
-                success: (d) => d.manufacturerData,
-                failure: (_) => throw Exception()),
-            manufacturerData);
+          scanresult.result.iif(
+            success: (d) => d.manufacturerData,
+            failure: (_) => throw Exception(),
+          ),
+          manufacturerData,
+        );
       });
 
       group('given Scan fails', () {
@@ -168,12 +184,14 @@ void main() {
       test("converts a known raw code", () {
         const knownRawCode = 0;
         const knownCode = "known code";
-        final error = sut.genericFailureFrom(
-          hasFailure: true,
-          getFailure: () => pb.GenericFailure()..code = knownRawCode,
-          codes: <String>[knownCode],
-          fallback: (rawOrNull) => throw Exception(),
-        ) as GenericFailure<String>;
+        final error =
+            sut.genericFailureFrom(
+                  hasFailure: true,
+                  getFailure: () => pb.GenericFailure()..code = knownRawCode,
+                  codes: <String>[knownCode],
+                  fallback: (rawOrNull) => throw Exception(),
+                )
+                as GenericFailure<String>;
 
         expect(error.code, knownCode);
       });
@@ -181,12 +199,14 @@ void main() {
       test("converts an absent message to an empty string", () {
         const knownRawCode = 0;
         const knownCode = "known code";
-        final error = sut.genericFailureFrom(
-          hasFailure: true,
-          getFailure: () => pb.GenericFailure()..code = knownRawCode,
-          codes: <String>[knownCode],
-          fallback: (rawOrNull) => throw Exception(),
-        ) as GenericFailure<String>;
+        final error =
+            sut.genericFailureFrom(
+                  hasFailure: true,
+                  getFailure: () => pb.GenericFailure()..code = knownRawCode,
+                  codes: <String>[knownCode],
+                  fallback: (rawOrNull) => throw Exception(),
+                )
+                as GenericFailure<String>;
 
         expect(error.message, "");
       });
@@ -195,14 +215,16 @@ void main() {
         const knownRawCode = 0;
         const knownCode = "known code";
         const message = "message";
-        final error = sut.genericFailureFrom(
-          hasFailure: true,
-          getFailure: () => pb.GenericFailure()
-            ..code = knownRawCode
-            ..message = message,
-          codes: <String>[knownCode],
-          fallback: (rawOrNull) => throw Exception(),
-        ) as GenericFailure<String>;
+        final error =
+            sut.genericFailureFrom(
+                  hasFailure: true,
+                  getFailure: () => pb.GenericFailure()
+                    ..code = knownRawCode
+                    ..message = message,
+                  codes: <String>[knownCode],
+                  fallback: (rawOrNull) => throw Exception(),
+                )
+                as GenericFailure<String>;
 
         expect(error.message, message);
       });
@@ -214,8 +236,10 @@ void main() {
 
         final result = sut.resultFrom(getValue: () => 1, failure: failure);
 
-        expect(result.iif(success: (_) => throw Exception(), failure: id),
-            failure);
+        expect(
+          result.iif(success: (_) => throw Exception(), failure: id),
+          failure,
+        );
       });
 
       test("converts a value", () {
@@ -224,7 +248,9 @@ void main() {
         final result = sut.resultFrom(getValue: () => value, failure: failure);
 
         expect(
-            result.iif(success: id, failure: (_) => throw Exception()), value);
+          result.iif(success: id, failure: (_) => throw Exception()),
+          value,
+        );
       });
     });
 
@@ -322,22 +348,27 @@ void main() {
 
     group('decoding clear GATT cache result', () {
       test('succeeds', () {
-        final result = sut
-            .clearGattCacheResultFrom(pb.ClearGattCacheInfo().writeToBuffer());
+        final result = sut.clearGattCacheResultFrom(
+          pb.ClearGattCacheInfo().writeToBuffer(),
+        );
 
         expect(
           result,
           const Result<Unit, GenericFailure<ClearGattCacheError>?>.success(
-              Unit()),
+            Unit(),
+          ),
         );
       });
 
       test('fails', () {
         final message = (pb.ClearGattCacheInfo()..failure = pb.GenericFailure())
             .writeToBuffer();
-        final result = sut.clearGattCacheResultFrom(message).iif(
-            success: (_) => throw AssertionError("Not expected to succeed"),
-            failure: (f) => f);
+        final result = sut
+            .clearGattCacheResultFrom(message)
+            .iif(
+              success: (_) => throw AssertionError("Not expected to succeed"),
+              failure: (f) => f,
+            );
 
         expect(result?.code, ClearGattCacheError.unknown);
       });
@@ -392,11 +423,15 @@ void main() {
         String? result;
 
         setUp(() {
-          failureMessage =
-              (message..failure = pb.GenericFailure()).writeToBuffer();
-          result = sut.characteristicValueFrom(failureMessage).result.iif(
-              success: (_) => throw AssertionError("Not expected to succeed"),
-              failure: (_) => "failure");
+          failureMessage = (message..failure = pb.GenericFailure())
+              .writeToBuffer();
+          result = sut
+              .characteristicValueFrom(failureMessage)
+              .result
+              .iif(
+                success: (_) => throw AssertionError("Not expected to succeed"),
+                failure: (_) => "failure",
+              );
         });
 
         test('failure is converted', () {
@@ -442,10 +477,12 @@ void main() {
         final result = sut.writeCharacteristicInfoFrom(data);
 
         expect(
-            result.result.iif(
-                success: (_) => "success",
-                failure: (_) => throw AssertionError("Not expected to fail")),
-            "success");
+          result.result.iif(
+            success: (_) => "success",
+            failure: (_) => throw AssertionError("Not expected to fail"),
+          ),
+          "success",
+        );
       });
 
       test('it converts failure', () {
@@ -456,8 +493,9 @@ void main() {
             .writeCharacteristicInfoFrom(failureMessage.writeToBuffer())
             .result
             .iif(
-                success: (_) => throw AssertionError("Not expected to succeed"),
-                failure: (f) => f!);
+              success: (_) => throw AssertionError("Not expected to succeed"),
+              failure: (f) => f!,
+            );
         expect(result.code, WriteCharacteristicFailure.unknown);
       });
     });
@@ -472,8 +510,9 @@ void main() {
       });
 
       test('succeeds', () {
-        final result =
-            sut.connectionPriorityInfoFrom(message.writeToBuffer()).result;
+        final result = sut
+            .connectionPriorityInfoFrom(message.writeToBuffer())
+            .result;
         expect(
           result.iif(
             success: (_) => "success",
@@ -489,8 +528,9 @@ void main() {
             .connectionPriorityInfoFrom(failureMessage.writeToBuffer())
             .result
             .iif(
-                success: (_) => throw AssertionError("Not expected to succeed"),
-                failure: (f) => f!);
+              success: (_) => throw AssertionError("Not expected to succeed"),
+              failure: (f) => f!,
+            );
         expect(result.code, ConnectionPriorityFailure.unknown);
       });
     });
@@ -567,52 +607,49 @@ void main() {
         });
 
         test('services are decoded', () {
-          expect(
-            convertedResult,
-            [
-              DiscoveredService(
-                serviceId: Uuid([0]),
-                serviceInstanceId: '10',
-                characteristicIds: [
-                  Uuid([0, 1, 1])
-                ],
-                characteristics: [
-                  DiscoveredCharacteristic(
-                    characteristicId: Uuid([0, 1, 1]),
-                    characteristicInstanceId: '101',
-                    serviceId: Uuid([0]),
-                    isReadable: false,
-                    isWritableWithResponse: true,
-                    isWritableWithoutResponse: false,
-                    isNotifiable: false,
-                    isIndicatable: false,
-                  ),
-                ],
-                includedServices: [
-                  DiscoveredService(
-                    serviceInstanceId: '11',
-                    serviceId: Uuid([1]),
-                    characteristicIds: [
-                      Uuid([1, 1])
-                    ],
-                    characteristics: [
-                      DiscoveredCharacteristic(
-                        characteristicInstanceId: '102',
-                        characteristicId: Uuid([1, 1]),
-                        serviceId: Uuid([1]),
-                        isReadable: true,
-                        isWritableWithResponse: false,
-                        isWritableWithoutResponse: false,
-                        isNotifiable: false,
-                        isIndicatable: false,
-                      ),
-                    ],
-                    includedServices: [],
-                  ),
-                ],
-              )
-            ],
-          );
+          expect(convertedResult, [
+            DiscoveredService(
+              serviceId: Uuid([0]),
+              serviceInstanceId: '10',
+              characteristicIds: [
+                Uuid([0, 1, 1]),
+              ],
+              characteristics: [
+                DiscoveredCharacteristic(
+                  characteristicId: Uuid([0, 1, 1]),
+                  characteristicInstanceId: '101',
+                  serviceId: Uuid([0]),
+                  isReadable: false,
+                  isWritableWithResponse: true,
+                  isWritableWithoutResponse: false,
+                  isNotifiable: false,
+                  isIndicatable: false,
+                ),
+              ],
+              includedServices: [
+                DiscoveredService(
+                  serviceInstanceId: '11',
+                  serviceId: Uuid([1]),
+                  characteristicIds: [
+                    Uuid([1, 1]),
+                  ],
+                  characteristics: [
+                    DiscoveredCharacteristic(
+                      characteristicInstanceId: '102',
+                      characteristicId: Uuid([1, 1]),
+                      serviceId: Uuid([1]),
+                      isReadable: true,
+                      isWritableWithResponse: false,
+                      isWritableWithoutResponse: false,
+                      isNotifiable: false,
+                      isIndicatable: false,
+                    ),
+                  ],
+                  includedServices: [],
+                ),
+              ],
+            ),
+          ]);
         });
       });
     });

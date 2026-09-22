@@ -16,22 +16,19 @@ abstract class ArgsToProtobufConverter {
   );
 
   pb.WriteCharacteristicRequest createWriteCharacteristicRequest(
-      CharacteristicInstance characteristic,
+    CharacteristicInstance characteristic,
     List<int> value,
   );
 
   pb.NotifyCharacteristicRequest createNotifyCharacteristicRequest(
-      CharacteristicInstance characteristic,
+    CharacteristicInstance characteristic,
   );
 
   pb.NotifyNoMoreCharacteristicRequest createNotifyNoMoreCharacteristicRequest(
-      CharacteristicInstance characteristic,
+    CharacteristicInstance characteristic,
   );
 
-  pb.NegotiateMtuRequest createNegotiateMtuRequest(
-    String deviceId,
-    int mtu,
-  );
+  pb.NegotiateMtuRequest createNegotiateMtuRequest(String deviceId, int mtu);
 
   pb.ChangeConnectionPriorityRequest createChangeConnectionPrioRequest(
     String deviceId,
@@ -74,8 +71,9 @@ class ArgsToProtobufConverterImpl implements ArgsToProtobufConverter {
         items.add(
           pb.ServiceWithCharacteristics()
             ..serviceId = (pb.Uuid()..data = serviceId.data)
-            ..characteristics
-                .addAll(characteristicIds.map((c) => pb.Uuid()..data = c.data)),
+            ..characteristics.addAll(
+              characteristicIds.map((c) => pb.Uuid()..data = c.data),
+            ),
         );
       }
       args.servicesWithCharacteristicsToDiscover =
@@ -97,8 +95,8 @@ class ArgsToProtobufConverterImpl implements ArgsToProtobufConverter {
         ..deviceId = characteristic.deviceId
         ..serviceUuid = (pb.Uuid()..data = characteristic.serviceId.data)
         ..serviceInstanceId = characteristic.serviceInstanceId
-        ..characteristicUuid =
-            (pb.Uuid()..data = characteristic.characteristicId.data)
+        ..characteristicUuid = (pb.Uuid()
+          ..data = characteristic.characteristicId.data)
         ..characteristicInstanceId = characteristic.characteristicInstanceId);
 
     return args;
@@ -114,8 +112,8 @@ class ArgsToProtobufConverterImpl implements ArgsToProtobufConverter {
         ..deviceId = characteristic.deviceId
         ..serviceUuid = (pb.Uuid()..data = characteristic.serviceId.data)
         ..serviceInstanceId = characteristic.serviceInstanceId
-        ..characteristicUuid =
-            (pb.Uuid()..data = characteristic.characteristicId.data)
+        ..characteristicUuid = (pb.Uuid()
+          ..data = characteristic.characteristicId.data)
         ..characteristicInstanceId = characteristic.characteristicInstanceId)
       ..value = value;
 
@@ -131,8 +129,8 @@ class ArgsToProtobufConverterImpl implements ArgsToProtobufConverter {
         ..deviceId = characteristic.deviceId
         ..serviceUuid = (pb.Uuid()..data = characteristic.serviceId.data)
         ..serviceInstanceId = characteristic.serviceInstanceId
-        ..characteristicUuid =
-            (pb.Uuid()..data = characteristic.characteristicId.data)
+        ..characteristicUuid = (pb.Uuid()
+          ..data = characteristic.characteristicId.data)
         ..characteristicInstanceId = characteristic.characteristicInstanceId);
 
     return args;
@@ -147,18 +145,15 @@ class ArgsToProtobufConverterImpl implements ArgsToProtobufConverter {
         ..deviceId = characteristic.deviceId
         ..serviceUuid = (pb.Uuid()..data = characteristic.serviceId.data)
         ..serviceInstanceId = characteristic.serviceInstanceId
-        ..characteristicUuid =
-            (pb.Uuid()..data = characteristic.characteristicId.data)
+        ..characteristicUuid = (pb.Uuid()
+          ..data = characteristic.characteristicId.data)
         ..characteristicInstanceId = characteristic.characteristicInstanceId);
 
     return args;
   }
 
   @override
-  pb.NegotiateMtuRequest createNegotiateMtuRequest(
-    String deviceId,
-    int mtu,
-  ) {
+  pb.NegotiateMtuRequest createNegotiateMtuRequest(String deviceId, int mtu) {
     final args = pb.NegotiateMtuRequest()
       ..deviceId = deviceId
       ..mtuSize = mtu;

@@ -5,9 +5,11 @@ import com.signify.hue.flutterreactiveble.ble.RequestConnectionPriorityFailed
 import com.signify.hue.flutterreactiveble.channelhandlers.BleStatusHandler
 import com.signify.hue.flutterreactiveble.channelhandlers.CharNotificationHandler
 import com.signify.hue.flutterreactiveble.channelhandlers.DeviceConnectionHandler
+import com.signify.hue.flutterreactiveble.channelhandlers.LogHandler
 import com.signify.hue.flutterreactiveble.channelhandlers.ScanDevicesHandler
 import com.signify.hue.flutterreactiveble.converters.ProtobufMessageConverter
 import com.signify.hue.flutterreactiveble.converters.UuidConverter
+import com.signify.hue.flutterreactiveble.utils.BleLogger
 import com.signify.hue.flutterreactiveble.utils.discard
 import com.signify.hue.flutterreactiveble.utils.toConnectionPriority
 import io.flutter.plugin.common.BinaryMessenger
@@ -65,6 +67,7 @@ class PluginController {
         deviceConnectionChannel = EventChannel(messenger, "flutter_reactive_ble_connected_device")
         charNotificationChannel = EventChannel(messenger, "flutter_reactive_ble_char_update")
         val bleStatusChannel = EventChannel(messenger, "flutter_reactive_ble_status")
+        val logChannel = EventChannel(messenger, "flutter_reactive_ble_log")
 
         scanDevicesHandler = ScanDevicesHandler(bleClient)
         deviceConnectionHandler = DeviceConnectionHandler(bleClient)
@@ -75,6 +78,7 @@ class PluginController {
         deviceConnectionChannel.setStreamHandler(deviceConnectionHandler)
         charNotificationChannel.setStreamHandler(charNotificationHandler)
         bleStatusChannel.setStreamHandler(bleStatusHandler)
+        logChannel.setStreamHandler(LogHandler())
     }
 
     internal fun deinitialize() {
@@ -181,6 +185,10 @@ class PluginController {
                             charNotificationHandler.addSingleReadToStream(charInfo)
                         }
                         is com.signify.hue.flutterreactiveble.ble.CharOperationFailed -> {
+                            BleLogger.error(
+                                "PluginController",
+                                "ReadCharacteristicFailed: deviceId=$deviceId: ${charResult.errorMessage}",
+                            )
                             protoConverter.convertCharacteristicError(
                                 readCharMessage.characteristic,
                                 "Failed to connect",
@@ -193,6 +201,10 @@ class PluginController {
                     }
                 },
                 { throwable ->
+                    BleLogger.error(
+                        "PluginController",
+                        "ReadCharacteristicFailed: deviceId=$deviceId: ${throwable?.message ?: "Failure"}",
+                    )
                     protoConverter.convertCharacteristicError(
                         readCharMessage.characteristic,
                         throwable.message,
@@ -258,6 +270,10 @@ class PluginController {
                             )
                         }
                         is com.signify.hue.flutterreactiveble.ble.CharOperationFailed -> {
+                            BleLogger.error(
+                                "PluginController",
+                                "WriteCharacteristicFailed: deviceId=${writeCharMessage.characteristic.deviceId}: ${operationResult.errorMessage}",
+                            )
                             result.success(
                                 protoConverter.convertWriteCharacteristicInfo(
                                     writeCharMessage,
@@ -268,6 +284,10 @@ class PluginController {
                     }
                 },
                 { throwable ->
+                    BleLogger.error(
+                        "PluginController",
+                        "WriteCharacteristicFailed: deviceId=${writeCharMessage.characteristic.deviceId}: ${throwable.message}",
+                    )
                     result.success(
                         protoConverter.convertWriteCharacteristicInfo(
                             writeCharMessage,
@@ -287,7 +307,10 @@ class PluginController {
         charNotificationHandler.subscribeToNotifications(
             request,
             onSetupComplete = { result.success(null) },
-            onSetupError = { error -> result.error("notification_setup_failure", error.message, null) },
+            onSetupError = { error ->
+                BleLogger.error("PluginController", "NotificationSetupFailed: ${error.message}")
+                result.error("notification_setup_failure", error.message, null)
+            },
         )
     }
 
@@ -368,6 +391,10 @@ class PluginController {
             }, {
                     throwable ->
                 val (code, message) = mapDiscoverServicesError(throwable, request.deviceId)
+                BleLogger.error(
+                    "PluginController",
+                    "DiscoverServicesFailed: deviceId=${request.deviceId}: $message",
+                )
                 result.error(code, message, throwable.stackTrace.toList().toString())
             })
             .discard()
@@ -383,6 +410,10 @@ class PluginController {
                     msg.contains("Already connected", ignoreCase = true)
 
         return if (isAlreadyConnected) {
+            BleLogger.warning(
+                "PluginController",
+                "DeviceAlreadyConnected: deviceId=$deviceId",
+            )
             "device_already_connected" to
                     "Device $deviceId is already connected at the OS level but is no longer tracked " +
                     "by the plugin. Call disconnectDevice (or restart Bluetooth) before retrying. " +

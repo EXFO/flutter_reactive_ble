@@ -56,7 +56,7 @@ void main() {
         deviceScanner: _deviceScanner,
         deviceConnector: _deviceConnector,
         connectedDeviceOperation: _deviceOperation,
-        debugLogger: _debugLogger,
+        logger: _debugLogger,
         initialization: Future.value(),
       );
     });
