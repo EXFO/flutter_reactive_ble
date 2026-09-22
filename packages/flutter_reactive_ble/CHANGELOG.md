@@ -1,3 +1,9 @@
+## 5.5.0+7
+
+* Route `DebugLogger` through `package:logging` (`FlutterReactiveBle - <Source>`) so records reach app log handlers (e.g. LogManager)
+* Extend `Logger` with `info` / `warning` / `error` for critical diagnostics (verbose `log` remains gated by `LogLevel.verbose`)
+* Forward critical native Android/iOS logs to Dart via `flutter_reactive_ble_log` (`BleLogger`)
+
 ## 5.5.0+6
 
 * Throw typed `CharacteristicResolutionException` subtypes from `resolve` / `resolveSingle` (`CharacteristicNotFoundException`, `MultipleCharacteristicException`, `CharacteristicConnectionLostException`) instead of generic `Exception`

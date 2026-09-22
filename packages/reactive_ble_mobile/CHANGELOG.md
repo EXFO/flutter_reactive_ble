@@ -1,3 +1,7 @@
+## 5.5.0+7
+
+* Add `BleLogger` (Android/iOS) and `flutter_reactive_ble_log` EventChannel to forward critical native logs to Dart
+
 ## 5.5.0+6
 
 * Android: complete `readNotifications` only after CCCD notification/indication setup succeeds; surface setup failures as `notification_setup_failure`
