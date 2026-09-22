@@ -48,8 +48,8 @@ void main() {
         (_) => Future.value(),
       );
 
-      when(_blePlatform.bleStatusStream)
-          .thenAnswer((realInvocation) => _bleStatusController.stream.asBroadcastStream());
+      when(_blePlatform.bleStatusStream).thenAnswer(
+          (realInvocation) => _bleStatusController.stream.asBroadcastStream());
 
       _sut = FlutterReactiveBle.withDependencies(
         reactiveBlePlatform: _blePlatform,
@@ -72,7 +72,9 @@ void main() {
         bleStatusStream = _sut.statusStream;
       });
 
-      test('Should emit status updates when platform publishes to status stream', () {
+      test(
+          'Should emit status updates when platform publishes to status stream',
+          () {
         _bleStatusController.add(BleStatus.ready);
 
         expect(
@@ -87,7 +89,9 @@ void main() {
           expect(_sut.status, BleStatus.unknown);
         });
 
-        test('Should return last emitted status when status stream has received an update', () async {
+        test(
+            'Should return last emitted status when status stream has received an update',
+            () async {
           const expectedStatus = BleStatus.unauthorized;
           _bleStatusController.add(expectedStatus);
 
@@ -98,7 +102,8 @@ void main() {
     });
 
     group('CharacteristicValueStream', () {
-      const characteristic = Result<List<int>, GenericFailure<CharacteristicValueUpdateError>>.success(
+      const characteristic = Result<List<int>,
+          GenericFailure<CharacteristicValueUpdateError>>.success(
         [1],
       );
       final characteristicInstance = CharacteristicInstance(
@@ -108,15 +113,19 @@ void main() {
         serviceId: Uuid.parse('F0FF'),
         serviceInstanceId: "101",
       );
-      final charValue = CharacteristicValue(characteristic: characteristicInstance, result: characteristic);
+      final charValue = CharacteristicValue(
+          characteristic: characteristicInstance, result: characteristic);
       Stream<CharacteristicValue>? charValueStream;
 
       setUp(() {
-        when(_deviceOperation.characteristicValueStream).thenAnswer((_) => Stream.fromIterable([charValue]));
+        when(_deviceOperation.characteristicValueStream)
+            .thenAnswer((_) => Stream.fromIterable([charValue]));
         charValueStream = _sut.characteristicValueStream;
       });
 
-      test('Should emit characteristic values when characteristicValueStream is listened to', () {
+      test(
+          'Should emit characteristic values when characteristicValueStream is listened to',
+          () {
         expect(
           charValueStream,
           emitsInAnyOrder(
@@ -131,7 +140,8 @@ void main() {
         when(_blePlatform.deinitialize()).thenAnswer((_) async => 1);
       });
 
-      test('Should complete deinitialize when deinitialize is called', () async {
+      test('Should complete deinitialize when deinitialize is called',
+          () async {
         await _sut.deinitialize();
       });
     });
@@ -142,43 +152,48 @@ void main() {
 
       setUp(() async {
         characteristic = _createChar();
-        when(_deviceOperation.getDiscoverServices(characteristic.deviceId)).thenAnswer((_) async => [
-              DiscoveredService(
-                serviceId: characteristic.serviceId,
-                serviceInstanceId: "11",
-                characteristicIds: [characteristic.characteristicId],
-                includedServices: [],
-                characteristics: [
-                  DiscoveredCharacteristic(
-                    characteristicId: Uuid.parse("1234"),
-                    characteristicInstanceId: "101",
+        when(_deviceOperation.getDiscoverServices(characteristic.deviceId))
+            .thenAnswer((_) async => [
+                  DiscoveredService(
                     serviceId: characteristic.serviceId,
-                    isReadable: true,
-                    isWritableWithResponse: true,
-                    isWritableWithoutResponse: true,
-                    isNotifiable: true,
-                    isIndicatable: true,
-                  ),
-                  DiscoveredCharacteristic(
-                    characteristicId: characteristic.characteristicId,
-                    characteristicInstanceId: "101",
-                    serviceId: characteristic.serviceId,
-                    isReadable: true,
-                    isWritableWithResponse: true,
-                    isWritableWithoutResponse: true,
-                    isNotifiable: true,
-                    isIndicatable: true,
-                  ),
-                ],
-              )
-            ]);
-        when(_deviceOperation.readCharacteristic(any)).thenAnswer((_) async => [1]);
-        when(_deviceConnector.deviceConnectionStateUpdateStream).thenAnswer((_) => const Stream.empty());
+                    serviceInstanceId: "11",
+                    characteristicIds: [characteristic.characteristicId],
+                    includedServices: [],
+                    characteristics: [
+                      DiscoveredCharacteristic(
+                        characteristicId: Uuid.parse("1234"),
+                        characteristicInstanceId: "101",
+                        serviceId: characteristic.serviceId,
+                        isReadable: true,
+                        isWritableWithResponse: true,
+                        isWritableWithoutResponse: true,
+                        isNotifiable: true,
+                        isIndicatable: true,
+                      ),
+                      DiscoveredCharacteristic(
+                        characteristicId: characteristic.characteristicId,
+                        characteristicInstanceId: "101",
+                        serviceId: characteristic.serviceId,
+                        isReadable: true,
+                        isWritableWithResponse: true,
+                        isWritableWithoutResponse: true,
+                        isNotifiable: true,
+                        isIndicatable: true,
+                      ),
+                    ],
+                  )
+                ]);
+        when(_deviceOperation.readCharacteristic(any))
+            .thenAnswer((_) async => [1]);
+        when(_deviceConnector.deviceConnectionStateUpdateStream)
+            .thenAnswer((_) => const Stream.empty());
 
         result = await _sut.readCharacteristic(characteristic);
       });
 
-      test('Should read resolved characteristic instance when readCharacteristic is called', () {
+      test(
+          'Should read resolved characteristic instance when readCharacteristic is called',
+          () {
         verify(_deviceOperation.readCharacteristic(CharacteristicInstance(
           characteristicId: characteristic.characteristicId,
           characteristicInstanceId: "101",
@@ -192,39 +207,41 @@ void main() {
         expect(result, [1]);
       });
 
-      test('Should throw when multiple matching characteristics are discovered', () async {
+      test('Should throw when multiple matching characteristics are discovered',
+          () async {
         clearInteractions(_deviceOperation);
 
-        when(_deviceOperation.getDiscoverServices(characteristic.deviceId)).thenAnswer((_) async => [
-              DiscoveredService(
-                serviceId: characteristic.serviceId,
-                serviceInstanceId: "11",
-                characteristicIds: [characteristic.characteristicId],
-                includedServices: [],
-                characteristics: [
-                  DiscoveredCharacteristic(
-                    characteristicId: characteristic.characteristicId,
-                    characteristicInstanceId: "101",
+        when(_deviceOperation.getDiscoverServices(characteristic.deviceId))
+            .thenAnswer((_) async => [
+                  DiscoveredService(
                     serviceId: characteristic.serviceId,
-                    isReadable: true,
-                    isWritableWithResponse: true,
-                    isWritableWithoutResponse: true,
-                    isNotifiable: true,
-                    isIndicatable: true,
-                  ),
-                  DiscoveredCharacteristic(
-                    characteristicId: characteristic.characteristicId,
-                    characteristicInstanceId: "102",
-                    serviceId: characteristic.serviceId,
-                    isReadable: true,
-                    isWritableWithResponse: true,
-                    isWritableWithoutResponse: true,
-                    isNotifiable: true,
-                    isIndicatable: true,
-                  ),
-                ],
-              )
-            ]);
+                    serviceInstanceId: "11",
+                    characteristicIds: [characteristic.characteristicId],
+                    includedServices: [],
+                    characteristics: [
+                      DiscoveredCharacteristic(
+                        characteristicId: characteristic.characteristicId,
+                        characteristicInstanceId: "101",
+                        serviceId: characteristic.serviceId,
+                        isReadable: true,
+                        isWritableWithResponse: true,
+                        isWritableWithoutResponse: true,
+                        isNotifiable: true,
+                        isIndicatable: true,
+                      ),
+                      DiscoveredCharacteristic(
+                        characteristicId: characteristic.characteristicId,
+                        characteristicInstanceId: "102",
+                        serviceId: characteristic.serviceId,
+                        isReadable: true,
+                        isWritableWithResponse: true,
+                        isWritableWithoutResponse: true,
+                        isNotifiable: true,
+                        isIndicatable: true,
+                      ),
+                    ],
+                  )
+                ]);
 
         await expectLater(
           () => _sut.readCharacteristic(characteristic),
@@ -246,42 +263,47 @@ void main() {
           any,
           value: anyNamed('value'),
         )).thenAnswer((_) async => [0]);
-        when(_deviceOperation.getDiscoverServices(characteristic.deviceId)).thenAnswer((_) async => [
-              DiscoveredService(
-                serviceId: characteristic.serviceId,
-                serviceInstanceId: "11",
-                characteristicIds: [characteristic.characteristicId],
-                includedServices: [],
-                characteristics: [
-                  DiscoveredCharacteristic(
-                    characteristicId: Uuid.parse("1234"),
-                    characteristicInstanceId: "101",
+        when(_deviceOperation.getDiscoverServices(characteristic.deviceId))
+            .thenAnswer((_) async => [
+                  DiscoveredService(
                     serviceId: characteristic.serviceId,
-                    isReadable: true,
-                    isWritableWithResponse: true,
-                    isWritableWithoutResponse: true,
-                    isNotifiable: true,
-                    isIndicatable: true,
-                  ),
-                  DiscoveredCharacteristic(
-                    characteristicId: characteristic.characteristicId,
-                    characteristicInstanceId: "101",
-                    serviceId: characteristic.serviceId,
-                    isReadable: true,
-                    isWritableWithResponse: true,
-                    isWritableWithoutResponse: true,
-                    isNotifiable: true,
-                    isIndicatable: true,
-                  ),
-                ],
-              )
-            ]);
-        when(_deviceConnector.deviceConnectionStateUpdateStream).thenAnswer((_) => const Stream.empty());
+                    serviceInstanceId: "11",
+                    characteristicIds: [characteristic.characteristicId],
+                    includedServices: [],
+                    characteristics: [
+                      DiscoveredCharacteristic(
+                        characteristicId: Uuid.parse("1234"),
+                        characteristicInstanceId: "101",
+                        serviceId: characteristic.serviceId,
+                        isReadable: true,
+                        isWritableWithResponse: true,
+                        isWritableWithoutResponse: true,
+                        isNotifiable: true,
+                        isIndicatable: true,
+                      ),
+                      DiscoveredCharacteristic(
+                        characteristicId: characteristic.characteristicId,
+                        characteristicInstanceId: "101",
+                        serviceId: characteristic.serviceId,
+                        isReadable: true,
+                        isWritableWithResponse: true,
+                        isWritableWithoutResponse: true,
+                        isNotifiable: true,
+                        isIndicatable: true,
+                      ),
+                    ],
+                  )
+                ]);
+        when(_deviceConnector.deviceConnectionStateUpdateStream)
+            .thenAnswer((_) => const Stream.empty());
 
-        await _sut.writeCharacteristicWithResponse(characteristic, value: value);
+        await _sut.writeCharacteristicWithResponse(characteristic,
+            value: value);
       });
 
-      test('Should write to resolved characteristic instance when writeCharacteristicWithResponse is called', () {
+      test(
+          'Should write to resolved characteristic instance when writeCharacteristicWithResponse is called',
+          () {
         verify(_deviceOperation.writeCharacteristicWithResponse(
           CharacteristicInstance(
             characteristicId: characteristic.characteristicId,
@@ -306,37 +328,39 @@ void main() {
           any,
           value: anyNamed('value'),
         )).thenAnswer((_) async => [0]);
-        when(_deviceOperation.getDiscoverServices(characteristic.deviceId)).thenAnswer((_) async => [
-              DiscoveredService(
-                serviceId: characteristic.serviceId,
-                serviceInstanceId: "11",
-                characteristicIds: [characteristic.characteristicId],
-                includedServices: [],
-                characteristics: [
-                  DiscoveredCharacteristic(
-                    characteristicId: Uuid.parse("1234"),
-                    characteristicInstanceId: "101",
+        when(_deviceOperation.getDiscoverServices(characteristic.deviceId))
+            .thenAnswer((_) async => [
+                  DiscoveredService(
                     serviceId: characteristic.serviceId,
-                    isReadable: true,
-                    isWritableWithResponse: true,
-                    isWritableWithoutResponse: true,
-                    isNotifiable: true,
-                    isIndicatable: true,
-                  ),
-                  DiscoveredCharacteristic(
-                    characteristicId: characteristic.characteristicId,
-                    characteristicInstanceId: "101",
-                    serviceId: characteristic.serviceId,
-                    isReadable: true,
-                    isWritableWithResponse: true,
-                    isWritableWithoutResponse: true,
-                    isNotifiable: true,
-                    isIndicatable: true,
-                  ),
-                ],
-              )
-            ]);
-        when(_deviceConnector.deviceConnectionStateUpdateStream).thenAnswer((_) => const Stream.empty());
+                    serviceInstanceId: "11",
+                    characteristicIds: [characteristic.characteristicId],
+                    includedServices: [],
+                    characteristics: [
+                      DiscoveredCharacteristic(
+                        characteristicId: Uuid.parse("1234"),
+                        characteristicInstanceId: "101",
+                        serviceId: characteristic.serviceId,
+                        isReadable: true,
+                        isWritableWithResponse: true,
+                        isWritableWithoutResponse: true,
+                        isNotifiable: true,
+                        isIndicatable: true,
+                      ),
+                      DiscoveredCharacteristic(
+                        characteristicId: characteristic.characteristicId,
+                        characteristicInstanceId: "101",
+                        serviceId: characteristic.serviceId,
+                        isReadable: true,
+                        isWritableWithResponse: true,
+                        isWritableWithoutResponse: true,
+                        isNotifiable: true,
+                        isIndicatable: true,
+                      ),
+                    ],
+                  )
+                ]);
+        when(_deviceConnector.deviceConnectionStateUpdateStream)
+            .thenAnswer((_) => const Stream.empty());
 
         await _sut.writeCharacteristicWithoutResponse(
           characteristic,
@@ -344,7 +368,9 @@ void main() {
         );
       });
 
-      test('Should write to resolved characteristic instance when writeCharacteristicWithoutResponse is called', () {
+      test(
+          'Should write to resolved characteristic instance when writeCharacteristicWithoutResponse is called',
+          () {
         verify(_deviceOperation.writeCharacteristicWithoutResponse(
           CharacteristicInstance(
             characteristicId: characteristic.characteristicId,
@@ -364,7 +390,8 @@ void main() {
       int? result;
 
       setUp(() async {
-        when(_deviceOperation.requestMtu(any, any)).thenAnswer((_) async => mtu);
+        when(_deviceOperation.requestMtu(any, any))
+            .thenAnswer((_) async => mtu);
 
         result = await _sut.requestMtu(deviceId: deviceId, mtu: mtu);
       });
@@ -379,8 +406,10 @@ void main() {
       const priority = ConnectionPriority.highPerformance;
 
       setUp(() async {
-        when(_deviceOperation.requestConnectionPriority(any, any)).thenAnswer((_) async => 0);
-        await _sut.requestConnectionPriority(deviceId: deviceId, priority: priority);
+        when(_deviceOperation.requestConnectionPriority(any, any))
+            .thenAnswer((_) async => 0);
+        await _sut.requestConnectionPriority(
+            deviceId: deviceId, priority: priority);
       });
 
       test('Should complete when requestConnectionPriority succeeds', () {
@@ -408,7 +437,8 @@ void main() {
         when(_deviceScanner.scanForDevices(
           withServices: anyNamed('withServices'),
           scanMode: anyNamed('scanMode'),
-          requireLocationServicesEnabled: anyNamed('requireLocationServicesEnabled'),
+          requireLocationServicesEnabled:
+              anyNamed('requireLocationServicesEnabled'),
         )).thenAnswer((_) => Stream.fromIterable([device]));
 
         deviceStream = _sut.scanForDevices(
@@ -445,7 +475,8 @@ void main() {
       setUp(() {
         when(_deviceConnector.connect(
                 id: anyNamed('id'),
-                servicesWithCharacteristicsToDiscover: anyNamed('servicesWithCharacteristicsToDiscover'),
+                servicesWithCharacteristicsToDiscover:
+                    anyNamed('servicesWithCharacteristicsToDiscover'),
                 connectionTimeout: anyNamed('connectionTimeout')))
             .thenAnswer((realInvocation) => Stream.fromIterable([update]));
 
@@ -485,7 +516,8 @@ void main() {
       setUp(() {
         when(_deviceConnector.connectToAdvertisingDevice(
           id: anyNamed('id'),
-          servicesWithCharacteristicsToDiscover: anyNamed('servicesWithCharacteristicsToDiscover'),
+          servicesWithCharacteristicsToDiscover:
+              anyNamed('servicesWithCharacteristicsToDiscover'),
           connectionTimeout: anyNamed('connectionTimeout'),
           prescanDuration: anyNamed('prescanDuration'),
           withServices: anyNamed('withServices'),
@@ -500,7 +532,9 @@ void main() {
         );
       });
 
-      test('Should emit connection updates when connectToAdvertisingDevice is called', () {
+      test(
+          'Should emit connection updates when connectToAdvertisingDevice is called',
+          () {
         expect(
           deviceUpdateStream,
           emitsInAnyOrder(
@@ -528,7 +562,8 @@ void main() {
         when(
           _deviceConnector.connect(
             id: anyNamed('id'),
-            servicesWithCharacteristicsToDiscover: anyNamed('servicesWithCharacteristicsToDiscover'),
+            servicesWithCharacteristicsToDiscover:
+                anyNamed('servicesWithCharacteristicsToDiscover'),
             connectionTimeout: anyNamed('connectionTimeout'),
           ),
         ).thenAnswer((_) => Stream.fromIterable([update]));
@@ -536,7 +571,8 @@ void main() {
         when(
           _deviceConnector.connectToAdvertisingDevice(
             id: anyNamed('id'),
-            servicesWithCharacteristicsToDiscover: anyNamed('servicesWithCharacteristicsToDiscover'),
+            servicesWithCharacteristicsToDiscover:
+                anyNamed('servicesWithCharacteristicsToDiscover'),
             connectionTimeout: anyNamed('connectionTimeout'),
             prescanDuration: anyNamed('prescanDuration'),
             withServices: anyNamed('withServices'),
@@ -544,7 +580,9 @@ void main() {
         ).thenAnswer((_) => Stream.fromIterable([update]));
       });
 
-      test('Should use direct connect when type is auto and app is in background', () async {
+      test(
+          'Should use direct connect when type is auto and app is in background',
+          () async {
         final stream = _sut.connectSmartToDevice(
           id: deviceId,
           type: BleConnectionType.auto,
@@ -555,7 +593,8 @@ void main() {
           connectionTimeout: timeout,
         );
 
-        await expectLater(stream, emitsInOrder(<ConnectionStateUpdate>[update]));
+        await expectLater(
+            stream, emitsInOrder(<ConnectionStateUpdate>[update]));
         verify(_deviceConnector.connect(
           id: deviceId,
           servicesWithCharacteristicsToDiscover: servicesToDiscover,
@@ -563,14 +602,17 @@ void main() {
         )).called(1);
         verifyNever(_deviceConnector.connectToAdvertisingDevice(
           id: anyNamed('id'),
-          servicesWithCharacteristicsToDiscover: anyNamed('servicesWithCharacteristicsToDiscover'),
+          servicesWithCharacteristicsToDiscover:
+              anyNamed('servicesWithCharacteristicsToDiscover'),
           connectionTimeout: anyNamed('connectionTimeout'),
           prescanDuration: anyNamed('prescanDuration'),
           withServices: anyNamed('withServices'),
         ));
       });
 
-      test('Should use prescan connect when type is auto and app is in foreground', () async {
+      test(
+          'Should use prescan connect when type is auto and app is in foreground',
+          () async {
         final stream = _sut.connectSmartToDevice(
           id: deviceId,
           type: BleConnectionType.auto,
@@ -581,7 +623,8 @@ void main() {
           connectionTimeout: timeout,
         );
 
-        await expectLater(stream, emitsInOrder(<ConnectionStateUpdate>[update]));
+        await expectLater(
+            stream, emitsInOrder(<ConnectionStateUpdate>[update]));
         verify(_deviceConnector.connectToAdvertisingDevice(
           id: deviceId,
           withServices: withServices,
@@ -601,7 +644,8 @@ void main() {
           connectionTimeout: timeout,
         );
 
-        await expectLater(stream, emitsInOrder(<ConnectionStateUpdate>[update]));
+        await expectLater(
+            stream, emitsInOrder(<ConnectionStateUpdate>[update]));
         verify(_deviceConnector.connect(
           id: deviceId,
           servicesWithCharacteristicsToDiscover: servicesToDiscover,
@@ -609,7 +653,9 @@ void main() {
         )).called(1);
       });
 
-      test('Should use advertising connect when type is connectToAdvertisingDevice', () async {
+      test(
+          'Should use advertising connect when type is connectToAdvertisingDevice',
+          () async {
         final stream = _sut.connectSmartToDevice(
           id: deviceId,
           type: BleConnectionType.connectToAdvertisingDevice,
@@ -619,7 +665,8 @@ void main() {
           connectionTimeout: timeout,
         );
 
-        await expectLater(stream, emitsInOrder(<ConnectionStateUpdate>[update]));
+        await expectLater(
+            stream, emitsInOrder(<ConnectionStateUpdate>[update]));
         verify(_deviceConnector.connectToAdvertisingDevice(
           id: deviceId,
           withServices: withServices,
@@ -638,12 +685,15 @@ void main() {
       );
 
       setUp(() async {
-        when(_blePlatform.clearGattCache('123')).thenAnswer((_) async => result);
+        when(_blePlatform.clearGattCache('123'))
+            .thenAnswer((_) async => result);
 
         await _sut.clearGattCache(deviceId);
       });
 
-      test('Should invoke platform clearGattCache when clearGattCache is called', () {
+      test(
+          'Should invoke platform clearGattCache when clearGattCache is called',
+          () {
         expect(true, true);
       });
     });
@@ -672,7 +722,9 @@ void main() {
         updateStream = _sut.connectedDeviceStream;
       });
 
-      test('Should emit connection updates when connectedDeviceStream is listened to', () {
+      test(
+          'Should emit connection updates when connectedDeviceStream is listened to',
+          () {
         expect(
           updateStream,
           emitsInOrder(
@@ -696,49 +748,54 @@ void main() {
 
       setUp(() {
         char = _createChar();
-        when(_deviceConnector.deviceConnectionStateUpdateStream).thenAnswer((_) => Stream.fromIterable([update]));
-        when(_deviceOperation.getDiscoverServices(char.deviceId)).thenAnswer((_) async => [
-              DiscoveredService(
-                serviceId: char.serviceId,
-                serviceInstanceId: "11",
-                characteristicIds: [char.characteristicId],
-                includedServices: [],
-                characteristics: [
-                  DiscoveredCharacteristic(
-                    characteristicId: Uuid.parse("1234"),
-                    characteristicInstanceId: "101",
+        when(_deviceConnector.deviceConnectionStateUpdateStream)
+            .thenAnswer((_) => Stream.fromIterable([update]));
+        when(_deviceOperation.getDiscoverServices(char.deviceId))
+            .thenAnswer((_) async => [
+                  DiscoveredService(
                     serviceId: char.serviceId,
-                    isReadable: true,
-                    isWritableWithResponse: true,
-                    isWritableWithoutResponse: true,
-                    isNotifiable: true,
-                    isIndicatable: true,
-                  ),
-                  DiscoveredCharacteristic(
-                    characteristicId: char.characteristicId,
-                    characteristicInstanceId: "101",
-                    serviceId: char.serviceId,
-                    isReadable: true,
-                    isWritableWithResponse: true,
-                    isWritableWithoutResponse: true,
-                    isNotifiable: true,
-                    isIndicatable: true,
-                  ),
-                ],
-              )
-            ]);
+                    serviceInstanceId: "11",
+                    characteristicIds: [char.characteristicId],
+                    includedServices: [],
+                    characteristics: [
+                      DiscoveredCharacteristic(
+                        characteristicId: Uuid.parse("1234"),
+                        characteristicInstanceId: "101",
+                        serviceId: char.serviceId,
+                        isReadable: true,
+                        isWritableWithResponse: true,
+                        isWritableWithoutResponse: true,
+                        isNotifiable: true,
+                        isIndicatable: true,
+                      ),
+                      DiscoveredCharacteristic(
+                        characteristicId: char.characteristicId,
+                        characteristicInstanceId: "101",
+                        serviceId: char.serviceId,
+                        isReadable: true,
+                        isWritableWithResponse: true,
+                        isWritableWithoutResponse: true,
+                        isNotifiable: true,
+                        isIndicatable: true,
+                      ),
+                    ],
+                  )
+                ]);
 
         valueStream = Stream.fromIterable([
           [1],
           [2]
         ]);
 
-        when(_deviceOperation.subscribeToCharacteristic(any, any)).thenAnswer((_) => valueStream);
+        when(_deviceOperation.subscribeToCharacteristic(any, any))
+            .thenAnswer((_) => valueStream);
 
         resultStream = _sut.subscribeToCharacteristic(char);
       });
 
-      test('Should emit notification values when subscribeToCharacteristic is called', () {
+      test(
+          'Should emit notification values when subscribeToCharacteristic is called',
+          () {
         expect(
           resultStream,
           emitsInOrder(
@@ -758,10 +815,12 @@ void main() {
         const result = <DiscoveredService>[];
 
         setUp(() {
-          when(_deviceOperation.discoverServices(any)).thenAnswer((_) async => result);
+          when(_deviceOperation.discoverServices(any))
+              .thenAnswer((_) async => result);
         });
 
-        test('Should return discovered services when discoverServices succeeds', () async {
+        test('Should return discovered services when discoverServices succeeds',
+            () async {
           // ignore: deprecated_member_use_from_same_package
           expect(await _sut.discoverServices(deviceId), <DiscoveredService>[]);
         });
@@ -775,10 +834,12 @@ void main() {
         const result = <DiscoveredService>[];
 
         setUp(() {
-          when(_deviceOperation.discoverServices(any)).thenAnswer((_) async => result);
+          when(_deviceOperation.discoverServices(any))
+              .thenAnswer((_) async => result);
         });
 
-        test('Should call device operation when discoverAllServices succeeds', () async {
+        test('Should call device operation when discoverAllServices succeeds',
+            () async {
           await _sut.discoverAllServices(deviceId);
           verify(_deviceOperation.discoverServices(deviceId)).called(1);
         });
@@ -790,41 +851,46 @@ void main() {
 
       group("multiple characteristics with same id in single service", () {
         setUp(() {
-          when(_deviceOperation.getDiscoverServices(deviceId)).thenAnswer((_) async => [
-                DiscoveredService(
-                  serviceId: Uuid.parse("ff01"),
-                  serviceInstanceId: "11",
-                  characteristicIds: [Uuid.parse("aa01")],
-                  includedServices: [],
-                  characteristics: [
-                    DiscoveredCharacteristic(
-                      characteristicId: Uuid.parse("aa01"),
-                      characteristicInstanceId: "101",
+          when(_deviceOperation.getDiscoverServices(deviceId))
+              .thenAnswer((_) async => [
+                    DiscoveredService(
                       serviceId: Uuid.parse("ff01"),
-                      isReadable: true,
-                      isWritableWithResponse: true,
-                      isWritableWithoutResponse: true,
-                      isNotifiable: true,
-                      isIndicatable: true,
-                    ),
-                    DiscoveredCharacteristic(
-                      characteristicId: Uuid.parse("aa01"),
-                      characteristicInstanceId: "102",
-                      serviceId: Uuid.parse("ff01"),
-                      isReadable: true,
-                      isWritableWithResponse: true,
-                      isWritableWithoutResponse: true,
-                      isNotifiable: true,
-                      isIndicatable: true,
-                    ),
-                  ],
-                )
-              ]);
-          when(_deviceOperation.readCharacteristic(any)).thenAnswer((_) async => [42]);
-          when(_deviceConnector.deviceConnectionStateUpdateStream).thenAnswer((_) => const Stream.empty());
+                      serviceInstanceId: "11",
+                      characteristicIds: [Uuid.parse("aa01")],
+                      includedServices: [],
+                      characteristics: [
+                        DiscoveredCharacteristic(
+                          characteristicId: Uuid.parse("aa01"),
+                          characteristicInstanceId: "101",
+                          serviceId: Uuid.parse("ff01"),
+                          isReadable: true,
+                          isWritableWithResponse: true,
+                          isWritableWithoutResponse: true,
+                          isNotifiable: true,
+                          isIndicatable: true,
+                        ),
+                        DiscoveredCharacteristic(
+                          characteristicId: Uuid.parse("aa01"),
+                          characteristicInstanceId: "102",
+                          serviceId: Uuid.parse("ff01"),
+                          isReadable: true,
+                          isWritableWithResponse: true,
+                          isWritableWithoutResponse: true,
+                          isNotifiable: true,
+                          isIndicatable: true,
+                        ),
+                      ],
+                    )
+                  ]);
+          when(_deviceOperation.readCharacteristic(any))
+              .thenAnswer((_) async => [42]);
+          when(_deviceConnector.deviceConnectionStateUpdateStream)
+              .thenAnswer((_) => const Stream.empty());
         });
 
-        test('Should read first characteristic instance when multiple share id in one service', () async {
+        test(
+            'Should read first characteristic instance when multiple share id in one service',
+            () async {
           final services = await _sut.getDiscoveredServices("123");
 
           expect(await services.single.characteristics.first.read(), [42]);
@@ -838,7 +904,9 @@ void main() {
           )));
         });
 
-        test('Should read second characteristic instance when multiple share id in one service', () async {
+        test(
+            'Should read second characteristic instance when multiple share id in one service',
+            () async {
           final services = await _sut.getDiscoveredServices("123");
 
           expect(await services.single.characteristics[1].read(), [42]);
@@ -855,49 +923,54 @@ void main() {
 
       group("multiple characteristics with same id in different service", () {
         setUp(() {
-          when(_deviceOperation.getDiscoverServices(deviceId)).thenAnswer((_) async => [
-            DiscoveredService(
-              serviceId: Uuid.parse("ff01"),
-              serviceInstanceId: "11",
-              characteristicIds: [Uuid.parse("aa01")],
-              includedServices: [],
-              characteristics: [
-                DiscoveredCharacteristic(
-                  characteristicId: Uuid.parse("aa01"),
-                  characteristicInstanceId: "101",
-                  serviceId: Uuid.parse("ff01"),
-                  isReadable: true,
-                  isWritableWithResponse: true,
-                  isWritableWithoutResponse: true,
-                  isNotifiable: true,
-                  isIndicatable: true,
-                ),
-              ],
-            ),
-            DiscoveredService(
-              serviceId: Uuid.parse("ff01"),
-              serviceInstanceId: "12",
-              characteristicIds: [Uuid.parse("aa01")],
-              includedServices: [],
-              characteristics: [
-                DiscoveredCharacteristic(
-                  characteristicId: Uuid.parse("aa01"),
-                  characteristicInstanceId: "101",
-                  serviceId: Uuid.parse("ff01"),
-                  isReadable: true,
-                  isWritableWithResponse: true,
-                  isWritableWithoutResponse: true,
-                  isNotifiable: true,
-                  isIndicatable: true,
-                ),
-              ],
-            ),
-          ]);
-          when(_deviceConnector.deviceConnectionStateUpdateStream).thenAnswer((_) => const Stream.empty());
-          when(_deviceOperation.readCharacteristic(any)).thenAnswer((_) async => [42]);
+          when(_deviceOperation.getDiscoverServices(deviceId))
+              .thenAnswer((_) async => [
+                    DiscoveredService(
+                      serviceId: Uuid.parse("ff01"),
+                      serviceInstanceId: "11",
+                      characteristicIds: [Uuid.parse("aa01")],
+                      includedServices: [],
+                      characteristics: [
+                        DiscoveredCharacteristic(
+                          characteristicId: Uuid.parse("aa01"),
+                          characteristicInstanceId: "101",
+                          serviceId: Uuid.parse("ff01"),
+                          isReadable: true,
+                          isWritableWithResponse: true,
+                          isWritableWithoutResponse: true,
+                          isNotifiable: true,
+                          isIndicatable: true,
+                        ),
+                      ],
+                    ),
+                    DiscoveredService(
+                      serviceId: Uuid.parse("ff01"),
+                      serviceInstanceId: "12",
+                      characteristicIds: [Uuid.parse("aa01")],
+                      includedServices: [],
+                      characteristics: [
+                        DiscoveredCharacteristic(
+                          characteristicId: Uuid.parse("aa01"),
+                          characteristicInstanceId: "101",
+                          serviceId: Uuid.parse("ff01"),
+                          isReadable: true,
+                          isWritableWithResponse: true,
+                          isWritableWithoutResponse: true,
+                          isNotifiable: true,
+                          isIndicatable: true,
+                        ),
+                      ],
+                    ),
+                  ]);
+          when(_deviceConnector.deviceConnectionStateUpdateStream)
+              .thenAnswer((_) => const Stream.empty());
+          when(_deviceOperation.readCharacteristic(any))
+              .thenAnswer((_) async => [42]);
         });
 
-        test('Should read first service characteristic when same id exists in different services', () async {
+        test(
+            'Should read first service characteristic when same id exists in different services',
+            () async {
           final services = await _sut.getDiscoveredServices("123");
 
           expect(await services.first.characteristics.single.read(), [42]);
@@ -911,7 +984,9 @@ void main() {
           )));
         });
 
-        test('Should read second service characteristic when same id exists in different services', () async {
+        test(
+            'Should read second service characteristic when same id exists in different services',
+            () async {
           final services = await _sut.getDiscoveredServices("123");
 
           expect(await services[1].characteristics.single.read(), [42]);

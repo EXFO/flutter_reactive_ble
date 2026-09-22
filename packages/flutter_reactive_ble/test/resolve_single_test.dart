@@ -35,7 +35,8 @@ void main() {
     late MockConnectedDeviceOperation deviceOperation;
     late FlutterReactiveBle sut;
 
-    DiscoveredService matchingService({String serviceInstanceId = '11', String charInstanceId = '101'}) =>
+    DiscoveredService matchingService(
+            {String serviceInstanceId = '11', String charInstanceId = '101'}) =>
         DiscoveredService(
           serviceId: serviceId,
           serviceInstanceId: serviceInstanceId,
@@ -81,7 +82,8 @@ void main() {
       await sut.deinitialize();
     });
 
-    test('Should return characteristic when exactly one match exists', () async {
+    test('Should return characteristic when exactly one match exists',
+        () async {
       when(deviceOperation.getDiscoverServices(deviceId))
           .thenAnswer((_) async => [matchingService()]);
 
@@ -91,8 +93,10 @@ void main() {
       expect(characteristic.service.id, serviceId);
     });
 
-    test('Should throw CharacteristicNotFoundException when no match exists', () async {
-      when(deviceOperation.getDiscoverServices(deviceId)).thenAnswer((_) async => []);
+    test('Should throw CharacteristicNotFoundException when no match exists',
+        () async {
+      when(deviceOperation.getDiscoverServices(deviceId))
+          .thenAnswer((_) async => []);
 
       await expectLater(
         sut.resolveSingle(qualified),
@@ -100,7 +104,9 @@ void main() {
       );
     });
 
-    test('Should throw MultipleCharacteristicException when multiple matches exist', () async {
+    test(
+        'Should throw MultipleCharacteristicException when multiple matches exist',
+        () async {
       when(deviceOperation.getDiscoverServices(deviceId)).thenAnswer(
         (_) async => [
           matchingService(),
@@ -114,7 +120,9 @@ void main() {
       );
     });
 
-    test('Should throw CharacteristicConnectionLostException when discovery fails', () async {
+    test(
+        'Should throw CharacteristicConnectionLostException when discovery fails',
+        () async {
       when(deviceOperation.getDiscoverServices(deviceId))
           .thenThrow(Exception('Device is not connected'));
 

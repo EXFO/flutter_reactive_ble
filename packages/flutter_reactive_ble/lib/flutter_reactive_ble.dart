@@ -1,6 +1,7 @@
 library flutter_reactive_ble;
 
-export 'package:reactive_ble_platform_interface/reactive_ble_platform_interface.dart' hide CharacteristicInstance;
+export 'package:reactive_ble_platform_interface/reactive_ble_platform_interface.dart'
+    hide CharacteristicInstance;
 
 export 'src/ble_connection_type.dart';
 export 'src/characteristic_exception.dart';

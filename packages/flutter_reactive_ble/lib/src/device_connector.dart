@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:collection/collection.dart';
 import 'package:flutter_reactive_ble/src/device_scanner.dart';
 import 'package:flutter_reactive_ble/src/rx_ext/repeater.dart';
@@ -63,7 +65,7 @@ class DeviceConnectorImpl implements DeviceConnector {
         .takeWhile((update) => update != null)
         .cast<ConnectionStateUpdate>();
 
-    final autoconnectingRepeater = Repeater.broadcast(
+    final broadcast = Repeater.broadcast(
       onListenEmitFrom: () => _blePlatform
           .connectToDevice(
             id,
@@ -74,7 +76,7 @@ class DeviceConnectorImpl implements DeviceConnector {
       onCancel: () => _blePlatform.disconnectDevice(id),
     );
 
-    return autoconnectingRepeater.stream;
+    return broadcast.stream;
   }
 
   @override
@@ -85,15 +87,9 @@ class DeviceConnectorImpl implements DeviceConnector {
     Map<Uuid, List<Uuid>>? servicesWithCharacteristicsToDiscover,
     Duration? connectionTimeout,
   }) {
-    if (_deviceScanner.currentScan != null) {
-      return _awaitCurrentScanAndConnect(
-        withServices,
-        prescanDuration,
-        id,
-        servicesWithCharacteristicsToDiscover,
-        connectionTimeout,
-      );
-    } else {
+    final currentScan = _deviceScanner.currentScan;
+    final hasNoScan = currentScan == null;
+    if (hasNoScan) {
       return _prescanAndConnect(
         id,
         servicesWithCharacteristicsToDiscover,
@@ -102,6 +98,33 @@ class DeviceConnectorImpl implements DeviceConnector {
         prescanDuration,
       );
     }
+
+    const deepCollection = DeepCollectionEquality();
+    final compare = !deepCollection.equals(
+      currentScan.withServices,
+      withServices,
+    );
+    if (compare) {
+      return Stream.value(
+        ConnectionStateUpdate(
+          deviceId: id,
+          connectionState: DeviceConnectionState.disconnected,
+          failure: const GenericFailure(
+            code: ConnectionError.failedToConnect,
+            message: "A scan for a different service is running",
+          ),
+        ),
+      );
+    }
+
+    final scanTimeout = prescanDuration + const Duration(seconds: 1);
+    return currentScan.future.timeout(scanTimeout).asStream().asyncExpand(
+          (_) => _connectIfRecentlyDiscovered(
+            id,
+            servicesWithCharacteristicsToDiscover,
+            connectionTimeout,
+          ),
+        );
   }
 
   Stream<ConnectionStateUpdate> _prescanAndConnect(
@@ -110,84 +133,75 @@ class DeviceConnectorImpl implements DeviceConnector {
     Duration? connectionTimeout,
     List<Uuid> withServices,
     Duration prescanDuration,
-  ) {
-    if (_deviceIsDiscoveredRecently(
-        deviceId: id, cacheValidity: _scanRegistryCacheValidityPeriod)) {
-      return connect(
+  ) async* {
+    final isDiscovered = _deviceIsDiscoveredRecently(
+      deviceId: id,
+      cacheValidity: _scanRegistryCacheValidityPeriod,
+    );
+    if (isDiscovered) {
+      yield* connect(
         id: id,
         servicesWithCharacteristicsToDiscover:
             servicesWithCharacteristicsToDiscover,
         connectionTimeout: connectionTimeout,
       );
-    } else {
-      final scanSubscription = _deviceScanner
-          .scanForDevices(
-              withServices: withServices, scanMode: ScanMode.lowLatency)
-          .listen((DiscoveredDevice scanData) {}, onError: (Object _) {});
+      return;
+    }
+
+    Stream<DiscoveredDevice> scanDevices() {
+      final scanResultsController = StreamController<DiscoveredDevice>();
+      final deviceScanStream = _deviceScanner.scanForDevices(
+          withServices: withServices, scanMode: ScanMode.lowLatency);
+      final scanResultsSubscription = deviceScanStream.listen(
+        scanResultsController.add,
+        onError: scanResultsController.addError,
+      );
+
       Future<void>.delayed(prescanDuration).then<void>((_) {
-        scanSubscription.cancel();
+        scanResultsSubscription.cancel();
+        scanResultsController.close();
       });
 
-      return _deviceScanner.currentScan!.future
-          .then((_) => true)
-          .catchError((Object _) => false)
-          .asStream()
-          .asyncExpand(
-        (succeeded) {
-          if (succeeded) {
-            return _connectIfRecentlyDiscovered(
-                id, servicesWithCharacteristicsToDiscover, connectionTimeout);
-          } else {
-            // When the scan fails 99% of the times it is due to violation of the scan threshold:
-            // https://blog.classycode.com/undocumented-android-7-ble-behavior-changes-d1a9bd87d983
-            //
-            // Previously we used "autoconnect" but that gives slow connection times (up to 2 min) on a lot of devices.
-            return Future<void>.delayed(_delayAfterScanFailure)
-                .asStream()
-                .asyncExpand((_) => _connectIfRecentlyDiscovered(
-                      id,
-                      servicesWithCharacteristicsToDiscover,
-                      connectionTimeout,
-                    ));
-          }
-        },
-      );
+      return scanResultsController.stream;
     }
-  }
 
-  Stream<ConnectionStateUpdate> _awaitCurrentScanAndConnect(
-    List<Uuid> withServices,
-    Duration prescanDuration,
-    String id,
-    Map<Uuid, List<Uuid>>? servicesWithCharacteristicsToDiscover,
-    Duration? connectionTimeout,
-  ) {
-    if (const DeepCollectionEquality()
-        .equals(_deviceScanner.currentScan!.withServices, withServices)) {
-      return _deviceScanner.currentScan!.future
-          .timeout(prescanDuration + const Duration(seconds: 1))
-          .asStream()
-          .asyncExpand(
-            (_) => _connectIfRecentlyDiscovered(
-              id,
-              servicesWithCharacteristicsToDiscover,
-              connectionTimeout,
-            ),
-          );
-    } else {
-      return Stream.fromIterable(
-        [
-          ConnectionStateUpdate(
-            deviceId: id,
-            connectionState: DeviceConnectionState.disconnected,
-            failure: const GenericFailure(
-              code: ConnectionError.failedToConnect,
-              message: "A scan for a different service is running",
-            ),
-          ),
-        ],
+    var targetDeviceFound = false;
+    try {
+      await for (final discoveredDevice in scanDevices()) {
+        final isTargetDevice = discoveredDevice.id == id;
+        if (isTargetDevice) {
+          targetDeviceFound = true;
+          break;
+        }
+      }
+      // ignore: avoid_catches_without_on_clauses
+    } catch (_) {
+      await Future<void>.delayed(_delayAfterScanFailure);
+      yield* _connectIfRecentlyDiscovered(
+        id,
+        servicesWithCharacteristicsToDiscover,
+        connectionTimeout,
       );
+      return;
     }
+
+    if (targetDeviceFound) {
+      yield* connect(
+        id: id,
+        servicesWithCharacteristicsToDiscover:
+            servicesWithCharacteristicsToDiscover,
+        connectionTimeout: connectionTimeout,
+      );
+      return;
+    }
+
+    yield ConnectionStateUpdate(
+      deviceId: id,
+      connectionState: DeviceConnectionState.disconnected,
+      failure: const GenericFailure(
+          code: ConnectionError.failedToConnect,
+          message: "Device is not advertising"),
+    );
   }
 
   Stream<ConnectionStateUpdate> _connectIfRecentlyDiscovered(
@@ -195,28 +209,27 @@ class DeviceConnectorImpl implements DeviceConnector {
     Map<Uuid, List<Uuid>>? servicesWithCharacteristicsToDiscover,
     Duration? connectionTimeout,
   ) {
-    if (_deviceIsDiscoveredRecently(
+    final isDiscovered = _deviceIsDiscoveredRecently(
       deviceId: id,
       cacheValidity: _scanRegistryCacheValidityPeriod,
-    )) {
+    );
+    if (isDiscovered) {
       return connect(
         id: id,
         servicesWithCharacteristicsToDiscover:
             servicesWithCharacteristicsToDiscover,
         connectionTimeout: connectionTimeout,
       );
-    } else {
-      return Stream.fromIterable(
-        [
-          ConnectionStateUpdate(
-            deviceId: id,
-            connectionState: DeviceConnectionState.disconnected,
-            failure: const GenericFailure(
-                code: ConnectionError.failedToConnect,
-                message: "Device is not advertising"),
-          ),
-        ],
-      );
     }
+
+    return Stream.value(
+      ConnectionStateUpdate(
+        deviceId: id,
+        connectionState: DeviceConnectionState.disconnected,
+        failure: const GenericFailure(
+            code: ConnectionError.failedToConnect,
+            message: "Device is not advertising"),
+      ),
+    );
   }
 }
