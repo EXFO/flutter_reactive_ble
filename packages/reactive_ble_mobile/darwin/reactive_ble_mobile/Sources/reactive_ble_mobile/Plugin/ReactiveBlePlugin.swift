@@ -8,6 +8,11 @@ import enum SwiftProtobuf.BinaryEncodingError
 import CoreBluetooth
 
 public class ReactiveBlePlugin: NSObject, FlutterPlugin {
+    private static let sharedContext = PluginController()
+
+    @objc public static func prepareForStateRestoration() {
+        _ = sharedContext
+    }
 
     public static func register(with registrar: FlutterPluginRegistrar) {
         let plugin = ReactiveBlePlugin()
@@ -104,7 +109,7 @@ public class ReactiveBlePlugin: NSObject, FlutterPlugin {
         )
     }
 
-    private let context = PluginController()
+    private var context: PluginController { Self.sharedContext }
 
     private let methodHandler = MethodHandler<PluginController>([
         AnyPlatformMethod(NullaryPlatformMethod(name: "initialize") { name, context, completion in

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
@@ -85,6 +86,74 @@ void main() {
             expect(_result,
                 emitsInOrder(<ConnectionStateUpdate?>[updateForDevice]));
           });
+        });
+      });
+
+      group('Given no connectionTimeout', () {
+        test('It keeps listening after disconnected then emits connected',
+            () async {
+          const disconnected = ConnectionStateUpdate(
+            deviceId: _deviceId,
+            connectionState: DeviceConnectionState.disconnected,
+            failure: null,
+          );
+          const connected = ConnectionStateUpdate(
+            deviceId: _deviceId,
+            connectionState: DeviceConnectionState.connected,
+            failure: null,
+          );
+          final controller = StreamController<ConnectionStateUpdate>();
+          _connectionStateUpdateStream = controller.stream;
+          when(_blePlatform.connectToDevice(any, any, any)).thenAnswer(
+            (_) => Stream.fromIterable([1]),
+          );
+
+          final events = <ConnectionStateUpdate>[];
+          final sub = _sut
+              .connect(
+                id: _deviceId,
+                servicesWithCharacteristicsToDiscover: _servicesToDiscover,
+              )
+              .listen(events.add);
+
+          controller.add(disconnected);
+          await Future<void>.delayed(Duration.zero);
+          controller.add(connected);
+          await Future<void>.delayed(Duration.zero);
+
+          expect(events, <ConnectionStateUpdate>[disconnected, connected]);
+          verifyNever(_blePlatform.disconnectDevice(any));
+
+          await sub.cancel();
+          await controller.close();
+        });
+      });
+
+      group('Given connectionTimeout', () {
+        test('It closes after disconnected and disconnects on cancel',
+            () async {
+          const disconnected = ConnectionStateUpdate(
+            deviceId: _deviceId,
+            connectionState: DeviceConnectionState.disconnected,
+            failure: null,
+          );
+          _connectionStateUpdateStream = Stream.fromIterable([disconnected]);
+          when(_blePlatform.connectToDevice(any, any, any)).thenAnswer(
+            (_) => Stream.fromIterable([1]),
+          );
+
+          await expectLater(
+            _sut.connect(
+              id: _deviceId,
+              servicesWithCharacteristicsToDiscover: _servicesToDiscover,
+              connectionTimeout: _connectionTimeout,
+            ),
+            emitsInOrder(<dynamic>[disconnected, emitsDone]),
+          );
+
+          // Stream completion cancels the repeater → disconnectDevice.
+          await Future<void>.delayed(Duration.zero);
+          verify(_blePlatform.disconnectDevice(_deviceId)).called(1);
         });
       });
     });

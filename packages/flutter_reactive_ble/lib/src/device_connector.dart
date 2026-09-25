@@ -56,14 +56,17 @@ class DeviceConnectorImpl implements DeviceConnector {
     Map<Uuid, List<Uuid>>? servicesWithCharacteristicsToDiscover,
     Duration? connectionTimeout,
   }) {
-    final specificConnectedDeviceStream = deviceConnectionStateUpdateStream
-        .where((update) => update.deviceId == id)
-        .expand((update) =>
-            update.connectionState != DeviceConnectionState.disconnected
-                ? [update]
-                : [update, null])
-        .takeWhile((update) => update != null)
-        .cast<ConnectionStateUpdate>();
+    final deviceUpdates = deviceConnectionStateUpdateStream
+        .where((update) => update.deviceId == id);
+    final specificConnectedDeviceStream = connectionTimeout == null
+        ? deviceUpdates
+        : deviceUpdates
+            .expand((update) =>
+                update.connectionState != DeviceConnectionState.disconnected
+                    ? [update]
+                    : [update, null])
+            .takeWhile((update) => update != null)
+            .cast<ConnectionStateUpdate>();
 
     final broadcast = Repeater.broadcast(
       onListenEmitFrom: () => _blePlatform
