@@ -8,6 +8,7 @@ import com.signify.hue.flutterreactiveble.model.ConnectionState
 import com.signify.hue.flutterreactiveble.model.toConnectionState
 import com.signify.hue.flutterreactiveble.utils.BleLogger
 import com.signify.hue.flutterreactiveble.utils.Duration
+import com.signify.hue.flutterreactiveble.utils.errorType
 import io.reactivex.Completable
 import io.reactivex.Observable
 import io.reactivex.Scheduler
@@ -62,8 +63,8 @@ internal class DeviceConnector(
             .onErrorReturn {
                 ConnectionUpdateError(
                     device.macAddress,
-                    it.message
-                        ?: "Unknown error",
+                    it.message ?: "Unknown error",
+                    it.errorType(),
                 )
             }
             .subscribe {
@@ -157,6 +158,7 @@ internal class DeviceConnector(
                 EstablishConnectionFailure(
                     rxBleDevice.macAddress,
                     error.message ?: "Unknown error",
+                    error.errorType(),
                 )
             }
             .doOnNext {
@@ -173,7 +175,13 @@ internal class DeviceConnector(
                 { result ->
                     connectDeviceSubject.onNext(result)
                     if (result is EstablishConnectionFailure) {
-                        updateListeners.invoke(ConnectionUpdateError(deviceId, result.errorMessage))
+                        updateListeners.invoke(
+                            ConnectionUpdateError(
+                                deviceId,
+                                result.errorMessage,
+                                result.errorType,
+                            ),
+                        )
                         tearDown("establish-failure")
                     }
                 },
@@ -182,6 +190,7 @@ internal class DeviceConnector(
                         ConnectionUpdateError(
                             deviceId,
                             throwable.message ?: "Unknown error",
+                            throwable.errorType(),
                         ),
                     )
                     tearDown("establish-error")

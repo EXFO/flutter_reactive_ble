@@ -4,7 +4,7 @@ enum class ConnectionErrorType(val code: Int) {
     UNKNOWN(0),
     FAILEDTOCONNECT(1),
     TIMEOUT(2),
-    TERMINATE_PEER_USER(3),
+    DISCONNECT_FROM_USER(3),
 }
 
 enum class ClearGattCacheErrorType(val code: Int) {

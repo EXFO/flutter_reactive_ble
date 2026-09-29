@@ -20,9 +20,11 @@ import com.signify.hue.flutterreactiveble.ble.extensions.resolveCharacteristic
 import com.signify.hue.flutterreactiveble.ble.extensions.writeCharWithResponse
 import com.signify.hue.flutterreactiveble.ble.extensions.writeCharWithoutResponse
 import com.signify.hue.flutterreactiveble.converters.extractManufacturerData
+import com.signify.hue.flutterreactiveble.model.ConnectionErrorType
 import com.signify.hue.flutterreactiveble.model.ScanMode
 import com.signify.hue.flutterreactiveble.model.toScanSettings
 import com.signify.hue.flutterreactiveble.utils.Duration
+import com.signify.hue.flutterreactiveble.utils.errorType
 import com.signify.hue.flutterreactiveble.utils.toBleState
 import io.reactivex.Completable
 import io.reactivex.Observable
@@ -115,6 +117,7 @@ open class ReactiveBleClient(private val context: Context) : BleClient {
                                 ConnectionUpdateError(
                                     deviceId,
                                     result.errorMessage,
+                                    result.errorType,
                                 ),
                             )
                         }
@@ -123,8 +126,9 @@ open class ReactiveBleClient(private val context: Context) : BleClient {
                     connectionUpdateBehaviorSubject.onNext(
                         ConnectionUpdateError(
                             deviceId,
-                            error?.message
-                                ?: "unknown error",
+                            error?.message ?: "unknown error",
+                            error?.errorType()
+                                ?: ConnectionErrorType.UNKNOWN,
                         ),
                     )
                 }),

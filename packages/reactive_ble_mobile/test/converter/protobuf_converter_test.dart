@@ -324,7 +324,7 @@ void main() {
         test('failure terminate peer user code is decoded', () {
           final updateResult = sut.connectionStateUpdateFrom(message).failure!;
           expect(updateResult.message, "peer terminated");
-          expect(updateResult.code, ConnectionError.terminatePeerUser);
+          expect(updateResult.code, ConnectionError.disconnectFromDevice);
         });
       });
 

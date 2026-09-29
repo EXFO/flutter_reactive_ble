@@ -49,6 +49,6 @@ enum ConnectionError {
   /// Connection attempt or active connection timed out.
   timeout,
 
-  /// The remote peer terminated the connection.
-  terminatePeerUser,
+  /// Disconnection from device (iOS CBError 7 / Android GATT 19).
+  disconnectFromDevice,
 }

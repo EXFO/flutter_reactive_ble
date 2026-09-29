@@ -64,13 +64,14 @@ class ProtobufMessageConverter {
     fun convertConnectionErrorToDeviceInfo(
         deviceId: String,
         errorMessage: String?,
+        errorType: ConnectionErrorType = ConnectionErrorType.FAILEDTOCONNECT,
     ): pb.DeviceInfo {
         return pb.DeviceInfo.newBuilder()
             .setId(deviceId)
             .setConnectionState(ConnectionState.DISCONNECTED.code)
             .setFailure(
                 pb.GenericFailure.newBuilder()
-                    .setCode(ConnectionErrorType.FAILEDTOCONNECT.code)
+                    .setCode(errorType.code)
                     .setMessage(errorMessage ?: "")
                     .build(),
             )

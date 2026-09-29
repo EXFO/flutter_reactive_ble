@@ -1,7 +1,10 @@
 enum ConnectionFailure: Int {
 
-    case unknown
-    case failedToConnect
+    /// Aligned with Dart [ConnectionError] indices.
+    case unknown = 0
+    case failedToConnect = 1
+    case timeout = 2
+    case disconnectFromDevice = 3
 }
 
 enum ClearGattCacheFailure: Int {

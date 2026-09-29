@@ -103,7 +103,7 @@ final class Central {
                     central.manualDisconnects.remove(peripheral.identifier)
                     central.clearWriteWithoutResponseState(for: peripheral.identifier)
                 case .failedToConnect(let error), .disconnected(let error):
-                    central.eject(peripheral, error: error ?? PluginError.connectionLost)
+                    central.eject(peripheral, error: error)
                     central.scheduleAutoReconnectIfNeeded(for: peripheral.identifier)
                 }
 
@@ -642,11 +642,19 @@ final class Central {
         }
     }
 
-    private func eject(_ peripheral: CBPeripheral, error: Error) {
-        BleLogger.warning(
-            "Central",
-            "Eject: deviceId=\(peripheral.identifier.uuidString) error=\(error)"
-        )
+    private func eject(_ peripheral: CBPeripheral, error cbError: Error?) {
+        let error = cbError ?? PluginError.connectionLost
+        if let cbError {
+            BleLogger.warning(
+                "Central",
+                "Eject: deviceId=\(peripheral.identifier.uuidString) error=\(cbError)"
+            )
+        } else {
+            BleLogger.info(
+                "Central",
+                "Eject: deviceId=\(peripheral.identifier.uuidString)"
+            )
+        }
         peripheral.delegate = nil
         activePeripherals[peripheral.identifier] = nil
 

@@ -67,12 +67,25 @@ class DeviceConnectionHandler(private val bleClient: com.signify.hue.flutterreac
                         handleDeviceConnectionUpdateResult(converter.convertToDeviceInfo(update))
                     }
                     is com.signify.hue.flutterreactiveble.ble.ConnectionUpdateError -> {
-                        BleLogger.error(
-                            "DeviceConnectionHandler",
-                            "ConnectionError: deviceId=${update.deviceId}: ${update.errorMessage}",
-                        )
+                        if (update.errorType ==
+                            com.signify.hue.flutterreactiveble.model.ConnectionErrorType.DISCONNECT_FROM_USER
+                        ) {
+                            BleLogger.warning(
+                                "DeviceConnectionHandler",
+                                "DisconnectFromDevice: deviceId=${update.deviceId}: ${update.errorMessage}",
+                            )
+                        } else {
+                            BleLogger.error(
+                                "DeviceConnectionHandler",
+                                "ConnectionError: deviceId=${update.deviceId}: ${update.errorMessage}",
+                            )
+                        }
                         handleDeviceConnectionUpdateResult(
-                            converter.convertConnectionErrorToDeviceInfo(update.deviceId, update.errorMessage),
+                            converter.convertConnectionErrorToDeviceInfo(
+                                update.deviceId,
+                                update.errorMessage,
+                                update.errorType,
+                            ),
                         )
                     }
                 }

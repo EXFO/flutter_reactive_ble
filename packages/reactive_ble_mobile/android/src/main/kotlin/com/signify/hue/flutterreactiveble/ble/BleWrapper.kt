@@ -1,6 +1,7 @@
 package com.signify.hue.flutterreactiveble.ble
 
 import com.polidea.rxandroidble2.RxBleConnection
+import com.signify.hue.flutterreactiveble.model.ConnectionErrorType
 import java.util.UUID
 
 data class ScanInfo(
@@ -45,13 +46,21 @@ sealed class ConnectionUpdate
 
 data class ConnectionUpdateSuccess(val deviceId: String, val connectionState: Int) : ConnectionUpdate()
 
-data class ConnectionUpdateError(val deviceId: String, val errorMessage: String) : ConnectionUpdate()
+data class ConnectionUpdateError(
+    val deviceId: String,
+    val errorMessage: String,
+    val errorType: ConnectionErrorType = ConnectionErrorType.FAILEDTOCONNECT,
+) : ConnectionUpdate()
 
 sealed class EstablishConnectionResult
 
 data class EstablishedConnection(val deviceId: String, val rxConnection: RxBleConnection) : EstablishConnectionResult()
 
-data class EstablishConnectionFailure(val deviceId: String, val errorMessage: String) : EstablishConnectionResult()
+data class EstablishConnectionFailure(
+    val deviceId: String,
+    val errorMessage: String,
+    val errorType: ConnectionErrorType = ConnectionErrorType.FAILEDTOCONNECT,
+) : EstablishConnectionResult()
 
 sealed class MtuNegotiateResult
 

@@ -26,6 +26,9 @@ struct CharacteristicNotifyTaskController: PeripheralTaskController {
     }
 
     func cancel(error: Error) -> SubjectTask {
+        guard task.params.state.isOn else {
+            return task.with(state: task.state.finished(nil))
+        }
         return task.with(state: task.state.finished(error))
     }
 

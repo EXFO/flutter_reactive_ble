@@ -161,14 +161,23 @@ final class PluginController {
                 case .connected:
                     // Wait for services & characteristics to be discovered
                     return
-                case .failedToConnect(let underlyingError), .disconnected(let underlyingError):
-                    failure = underlyingError.map { (.failedToConnect, "\($0)") }
-                    if let underlyingError = underlyingError {
-                        BleLogger.error(
-                            "PluginController",
-                            "ConnectionError: deviceId=\(peripheral.identifier.uuidString): \(underlyingError)"
-                        )
+                case .failedToConnect(let error), .disconnected(let error):
+                    if let error = error {
+                        let code = ErrorParser.code(for: error)
+                        failure = (code, "\(error)")
+                        if code == .disconnectFromDevice {
+                            BleLogger.warning(
+                                "PluginController",
+                                "DisconnectFromDevice: deviceId=\(peripheral.identifier.uuidString): \(error)"
+                            )
+                        } else {
+                            BleLogger.error(
+                                "PluginController",
+                                "ConnectionError: deviceId=\(peripheral.identifier.uuidString): \(error)"
+                            )
+                        }
                     } else {
+                        failure = nil
                         BleLogger.info(
                             "PluginController",
                             "ConnectionChanged: deviceId=\(peripheral.identifier.uuidString) change=\(change)"
