@@ -46,47 +46,40 @@ class ReactiveBleMobilePlatform extends ReactiveBlePlatform {
   final Stream<List<int>> _bleStatusRawChannel;
   final Stream<dynamic>? _restoredDevicesRawStream;
   final Logger? _logger;
-  StreamSubscription<dynamic>? _logSubscription;
 
+  StreamSubscription<dynamic>? _logSubscription;
   Stream<ConnectionStateUpdate>? _connectionUpdateStream;
   Stream<CharacteristicValue>? _charValueStream;
   Stream<ScanResult>? _scanResultStream;
-  Stream<BleStatus>? _bleStatusStream;
+  Stream<BleStatus>? _rawBleStatusStream;
   Stream<List<String>>? _restoredDevicesStream;
+  Stream<BleStatusEvent>? _statusStream;
+  BleStatus _lastStatus = BleStatus.unknown;
 
   @override
   Stream<ConnectionStateUpdate> get connectionUpdateStream =>
       _connectionUpdateStream ??= _connectedDeviceRawStream
           .map(_protobufConverter.connectionStateUpdateFrom)
           .map((update) {
-            final failure = update.failure;
-            if (failure != null) {
-              _logger?.warning(
-                'ConnectionFailure: deviceId=${update.deviceId}: $failure',
-              );
-            } else {
-              switch (update.connectionState) {
-                case DeviceConnectionState.connecting:
-                  _logger?.info(
-                    'ConnectionStart: deviceId=${update.deviceId}',
-                  );
-                  break;
-                case DeviceConnectionState.connected:
-                  _logger?.info('Connected: deviceId=${update.deviceId}');
-                  break;
-                default:
-                  _logger?.log(
-                    'Received $ConnectionStateUpdate(deviceId: ${update.deviceId}, connectionState: ${update.connectionState}, failure: ${update.failure})',
-                  );
-                  break;
-              }
+            switch (update.connectionState) {
+              case DeviceConnectionState.connecting:
+                _logger?.info('Connecting: deviceId=${update.deviceId}');
+                break;
+              case DeviceConnectionState.connected:
+                _logger?.info('Connected: deviceId=${update.deviceId}');
+                break;
+              default:
+                _logger?.log(
+                  'Received $ConnectionStateUpdate(deviceId: ${update.deviceId}, connectionState: ${update.connectionState}, failure: ${update.failure})',
+                );
+                break;
             }
             return update;
           });
 
   @override
-  Stream<List<String>> get restoredDevicesStream =>
-      _restoredDevicesStream ??= (_restoredDevicesRawStream ?? const Stream.empty())
+  Stream<List<String>> get restoredDevicesStream => _restoredDevicesStream ??=
+      (_restoredDevicesRawStream ?? const Stream.empty())
           .map((event) {
             if (event is List) {
               return event.map((e) => e.toString()).toList(growable: false);
@@ -100,41 +93,46 @@ class ReactiveBleMobilePlatform extends ReactiveBlePlatform {
           });
 
   @override
-  Stream<CharacteristicValue> get charValueUpdateStream => _charValueStream ??=
-      _charUpdateRawStream.map(_protobufConverter.characteristicValueFrom).map((
-        update,
-      ) {
-        _logger?.log(
-          'Received $CharacteristicValue(characteristic: ${update.characteristic}, result: ${update.runtimeType})',
-        );
-        return update;
-      });
+  Stream<CharacteristicValue> get charValueUpdateStream =>
+      _charValueStream ??= _charUpdateRawStream
+          .map(_protobufConverter.characteristicValueFrom)
+          .map((update) => update);
 
   @override
   Stream<ScanResult> get scanStream =>
       _scanResultStream ??= _bleDeviceScanRawStream
           .map(_protobufConverter.scanResultFrom)
-          .map((scanResult) {
-            _logger?.log('Received $ScanResult(result: ${scanResult.result})');
-            return scanResult;
-          });
+          .map((result) => result);
 
-  @override
-  Stream<BleStatus> get bleStatusStream => _bleStatusStream ??=
+  Stream<BleStatus> get _rawBleStatus => _rawBleStatusStream ??=
       _bleStatusRawChannel.map(_protobufConverter.bleStatusFrom).map((status) {
-        _logger?.log('Received $BleStatus update: $status');
+        _lastStatus = status;
         return status;
       });
 
+  /// Single stream: BLE restore and status updates
   @override
-  Future<void> initialize() {
-    _logger?.log('Initialize BLE platform');
-    return _bleMethodChannel.invokeMethod("initialize");
-  }
+  Stream<BleStatusEvent> get statusStream =>
+      _statusStream ??= Stream.multi((data) {
+        final status = _rawBleStatus.listen((status) {
+          data.add(BleStatusEvent.status(status));
+        }, onError: data.addError);
+
+        final restore = restoredDevicesStream.listen((ids) {
+          data.add(BleStatusEvent.restored(_lastStatus, ids));
+        }, onError: data.addError);
+
+        data.onCancel = () async {
+          await status.cancel();
+          await restore.cancel();
+        };
+      });
+
+  @override
+  Future<void> initialize() => _bleMethodChannel.invokeMethod("initialize");
 
   @override
   Future<void> deinitialize() {
-    _logger?.log('Deinitialize BLE platform');
     _logSubscription?.cancel();
     _logSubscription = null;
     return _bleMethodChannel.invokeMethod<void>("deinitialize");
@@ -145,205 +143,167 @@ class ReactiveBleMobilePlatform extends ReactiveBlePlatform {
     required List<Uuid> withServices,
     required ScanMode scanMode,
     required bool requireLocationServicesEnabled,
-  }) {
-    _logger?.log(
-      'Scan for devices with services:$withServices, scanMode: $scanMode, requireLocationServicesEnabled: $requireLocationServicesEnabled',
-    );
-    return _bleMethodChannel
-        .invokeMethod<void>(
-          "scanForDevices",
-          _argsToProtobufConverter
-              .createScanForDevicesRequest(
-                withServices: withServices,
-                scanMode: scanMode,
-                requireLocationServicesEnabled: requireLocationServicesEnabled,
-              )
-              .writeToBuffer(),
-        )
-        .asStream();
-  }
+  }) => _bleMethodChannel
+      .invokeMethod<void>(
+        "scanForDevices",
+        _argsToProtobufConverter
+            .createScanForDevicesRequest(
+              withServices: withServices,
+              scanMode: scanMode,
+              requireLocationServicesEnabled: requireLocationServicesEnabled,
+            )
+            .writeToBuffer(),
+      )
+      .asStream();
 
   @override
   Stream<void> connectToDevice(
     String id,
     Map<Uuid, List<Uuid>>? servicesWithCharacteristicsToDiscover,
     Duration? connectionTimeout,
-  ) {
-    _logger?.log(
-      'Connect to device: $id, servicesWithCharacteristicsToDiscover: $servicesWithCharacteristicsToDiscover, timeout: $connectionTimeout',
-    );
-    return _bleMethodChannel
-        .invokeMethod<void>(
-          "connectToDevice",
-          _argsToProtobufConverter
-              .createConnectToDeviceArgs(
-                id,
-                servicesWithCharacteristicsToDiscover,
-                connectionTimeout,
-              )
-              .writeToBuffer(),
-        )
-        .asStream();
-  }
+  ) => _bleMethodChannel
+      .invokeMethod<void>(
+        "connectToDevice",
+        _argsToProtobufConverter
+            .createConnectToDeviceArgs(
+              id,
+              servicesWithCharacteristicsToDiscover,
+              connectionTimeout,
+            )
+            .writeToBuffer(),
+      )
+      .asStream();
 
   @override
-  Future<void> disconnectDevice(String deviceId) {
-    _logger?.log('Disconnect device: $deviceId');
-    return _bleMethodChannel.invokeMethod<void>(
-      "disconnectFromDevice",
-      _argsToProtobufConverter
-          .createDisconnectDeviceArgs(deviceId)
-          .writeToBuffer(),
-    );
-  }
+  Future<void> disconnectDevice(String deviceId) =>
+      _bleMethodChannel.invokeMethod<void>(
+        "disconnectFromDevice",
+        _argsToProtobufConverter
+            .createDisconnectDeviceArgs(deviceId)
+            .writeToBuffer(),
+      );
 
   @override
-  Stream<void> readCharacteristic(CharacteristicInstance characteristic) {
-    _logger?.log('Read characteristic: $characteristic');
-    return _bleMethodChannel
-        .invokeMethod<void>(
-          "readCharacteristic",
-          _argsToProtobufConverter
-              .createReadCharacteristicRequest(characteristic)
-              .writeToBuffer(),
-        )
-        .asStream();
-  }
+  Stream<void> readCharacteristic(CharacteristicInstance characteristic) =>
+      _bleMethodChannel
+          .invokeMethod<void>(
+            "readCharacteristic",
+            _argsToProtobufConverter
+                .createReadCharacteristicRequest(characteristic)
+                .writeToBuffer(),
+          )
+          .asStream();
 
   @override
   Future<WriteCharacteristicInfo> writeCharacteristicWithResponse(
     CharacteristicInstance characteristic,
     List<int> value,
-  ) async {
-    _logger?.log('Write with response to $characteristic, value: $value');
-    return _bleMethodChannel
-        .invokeMethod<List<int>>(
-          "writeCharacteristicWithResponse",
-          _argsToProtobufConverter
-              .createWriteCharacteristicRequest(characteristic, value)
-              .writeToBuffer(),
-        )
-        .then((data) => _protobufConverter.writeCharacteristicInfoFrom(data!));
-  }
+  ) async => _bleMethodChannel
+      .invokeMethod<List<int>>(
+        "writeCharacteristicWithResponse",
+        _argsToProtobufConverter
+            .createWriteCharacteristicRequest(characteristic, value)
+            .writeToBuffer(),
+      )
+      .then((data) => _protobufConverter.writeCharacteristicInfoFrom(data!));
 
   @override
   Future<WriteCharacteristicInfo> writeCharacteristicWithoutResponse(
     CharacteristicInstance characteristic,
     List<int> value,
-  ) async {
-    _logger?.log('Write without response to $characteristic, value: $value');
-    return _bleMethodChannel
-        .invokeMethod<List<int>>(
-          "writeCharacteristicWithoutResponse",
-          _argsToProtobufConverter
-              .createWriteCharacteristicRequest(characteristic, value)
-              .writeToBuffer(),
-        )
-        .then((data) => _protobufConverter.writeCharacteristicInfoFrom(data!));
-  }
+  ) async => _bleMethodChannel
+      .invokeMethod<List<int>>(
+        "writeCharacteristicWithoutResponse",
+        _argsToProtobufConverter
+            .createWriteCharacteristicRequest(characteristic, value)
+            .writeToBuffer(),
+      )
+      .then((data) => _protobufConverter.writeCharacteristicInfoFrom(data!));
 
   @override
-  Stream<void> subscribeToNotifications(CharacteristicInstance characteristic) {
-    _logger?.log('Start subscribing to notifications for $characteristic');
-    return _bleMethodChannel
-        .invokeMethod<void>(
-          "readNotifications",
-          _argsToProtobufConverter
-              .createNotifyCharacteristicRequest(characteristic)
-              .writeToBuffer(),
-        )
-        .asStream();
-  }
+  Stream<void> subscribeToNotifications(
+    CharacteristicInstance characteristic,
+  ) => _bleMethodChannel
+      .invokeMethod<void>(
+        "readNotifications",
+        _argsToProtobufConverter
+            .createNotifyCharacteristicRequest(characteristic)
+            .writeToBuffer(),
+      )
+      .asStream();
 
   @override
   Future<void> stopSubscribingToNotifications(
     CharacteristicInstance characteristic,
-  ) {
-    _logger?.log('Stop subscribing to notifications for $characteristic');
-    return _bleMethodChannel
-        .invokeMethod<void>(
-          "stopNotifications",
-          _argsToProtobufConverter
-              .createNotifyNoMoreCharacteristicRequest(characteristic)
-              .writeToBuffer(),
-        )
-        .catchError(
-          // ignore: avoid_print
-          (Object e) => print("Error unsubscribing from notifications: $e"),
-        );
-  }
+  ) => _bleMethodChannel
+      .invokeMethod<void>(
+        "stopNotifications",
+        _argsToProtobufConverter
+            .createNotifyNoMoreCharacteristicRequest(characteristic)
+            .writeToBuffer(),
+      )
+      .catchError(
+        // ignore: avoid_print
+        (Object e) => print("Error unsubscribing from notifications: $e"),
+      );
 
   @override
-  Future<int> requestMtuSize(String deviceId, int? mtu) async {
-    _logger?.log('Request mtu size for device: $deviceId with mtuSize: $mtu');
-    return _bleMethodChannel
-        .invokeMethod<List<int>>(
-          "negotiateMtuSize",
-          _argsToProtobufConverter
-              .createNegotiateMtuRequest(deviceId, mtu!)
-              .writeToBuffer(),
-        )
-        .then((data) => _protobufConverter.mtuSizeFrom(data!));
-  }
+  Future<int> requestMtuSize(String deviceId, int? mtu) async =>
+      _bleMethodChannel
+          .invokeMethod<List<int>>(
+            "negotiateMtuSize",
+            _argsToProtobufConverter
+                .createNegotiateMtuRequest(deviceId, mtu!)
+                .writeToBuffer(),
+          )
+          .then((data) => _protobufConverter.mtuSizeFrom(data!));
 
   @override
   Future<ConnectionPriorityInfo> requestConnectionPriority(
     String deviceId,
     ConnectionPriority priority,
-  ) {
-    _logger?.log(
-      'Request connection priority for device: $deviceId, priority: $priority',
-    );
-    return _bleMethodChannel
-        .invokeMethod<List<int>>(
-          "requestConnectionPriority",
-          _argsToProtobufConverter
-              .createChangeConnectionPrioRequest(deviceId, priority)
-              .writeToBuffer(),
-        )
-        .then((data) => _protobufConverter.connectionPriorityInfoFrom(data!));
-  }
+  ) => _bleMethodChannel
+      .invokeMethod<List<int>>(
+        "requestConnectionPriority",
+        _argsToProtobufConverter
+            .createChangeConnectionPrioRequest(deviceId, priority)
+            .writeToBuffer(),
+      )
+      .then((data) => _protobufConverter.connectionPriorityInfoFrom(data!));
 
   @override
   Future<Result<Unit, GenericFailure<ClearGattCacheError>?>> clearGattCache(
     String deviceId,
-  ) {
-    _logger?.log('Clear gatt cache for device: $deviceId');
-    return _bleMethodChannel
-        .invokeMethod<List<int>>(
-          "clearGattCache",
-          _argsToProtobufConverter
-              .createClearGattCacheRequest(deviceId)
-              .writeToBuffer(),
-        )
-        .then((data) => _protobufConverter.clearGattCacheResultFrom(data!));
-  }
+  ) => _bleMethodChannel
+      .invokeMethod<List<int>>(
+        "clearGattCache",
+        _argsToProtobufConverter
+            .createClearGattCacheRequest(deviceId)
+            .writeToBuffer(),
+      )
+      .then((data) => _protobufConverter.clearGattCacheResultFrom(data!));
 
   @override
-  Future<List<DiscoveredService>> discoverServices(String deviceId) async {
-    _logger?.log('Discover services for device: $deviceId');
-    return _bleMethodChannel
-        .invokeMethod<List<int>>(
-          'discoverServices',
-          _argsToProtobufConverter
-              .createDiscoverServicesRequest(deviceId)
-              .writeToBuffer(),
-        )
-        .then((data) => _protobufConverter.discoveredServicesFrom(data!));
-  }
+  Future<List<DiscoveredService>> discoverServices(String deviceId) async =>
+      _bleMethodChannel
+          .invokeMethod<List<int>>(
+            'discoverServices',
+            _argsToProtobufConverter
+                .createDiscoverServicesRequest(deviceId)
+                .writeToBuffer(),
+          )
+          .then((data) => _protobufConverter.discoveredServicesFrom(data!));
 
   @override
-  Future<List<DiscoveredService>> getDiscoverServices(String deviceId) async {
-    _logger?.log('Get discovered services for device: $deviceId');
-    return _bleMethodChannel
-        .invokeMethod<List<int>>(
-          'getDiscoveredServices',
-          _argsToProtobufConverter
-              .createDiscoverServicesRequest(deviceId)
-              .writeToBuffer(),
-        )
-        .then((data) => _protobufConverter.discoveredServicesFrom(data!));
-  }
+  Future<List<DiscoveredService>> getDiscoverServices(String deviceId) async =>
+      _bleMethodChannel
+          .invokeMethod<List<int>>(
+            'getDiscoveredServices',
+            _argsToProtobufConverter
+                .createDiscoverServicesRequest(deviceId)
+                .writeToBuffer(),
+          )
+          .then((data) => _protobufConverter.discoveredServicesFrom(data!));
 
   @override
   Future<int> readRssi(String deviceId) async => _bleMethodChannel
@@ -360,7 +320,7 @@ class ReactiveBleMobilePlatformFactory {
   const ReactiveBleMobilePlatformFactory();
 
   ReactiveBleMobilePlatform create({Logger? logger}) {
-    const _bleMethodChannel = MethodChannel("flutter_reactive_ble_method");
+    const bleMethodChannel = MethodChannel("flutter_reactive_ble_method");
 
     const connectedDeviceChannel = EventChannel(
       "flutter_reactive_ble_connected_device",
@@ -374,7 +334,7 @@ class ReactiveBleMobilePlatformFactory {
     return ReactiveBleMobilePlatform(
       protobufConverter: const ProtobufConverterImpl(),
       argsToProtobufConverter: const ArgsToProtobufConverterImpl(),
-      bleMethodChannel: _bleMethodChannel,
+      bleMethodChannel: bleMethodChannel,
       connectedDeviceChannel: connectedDeviceChannel
           .receiveBroadcastStream()
           .cast<List<int>>(),

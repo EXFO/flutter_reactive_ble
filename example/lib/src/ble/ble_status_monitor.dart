@@ -7,5 +7,5 @@ class BleStatusMonitor implements ReactiveState<BleStatus?> {
   final FlutterReactiveBle _ble;
 
   @override
-  Stream<BleStatus?> get state => _ble.statusStream;
+  Stream<BleStatus?> get state => _ble.statusStream.map((e) => e.status);
 }

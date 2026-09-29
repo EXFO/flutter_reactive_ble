@@ -50,11 +50,21 @@ class FlutterReactiveBle {
 
   /// A stream providing the host device BLE subsystem status updates.
   ///
+  /// Emits [BleStatusEvent] (status changes, and on iOS [BleEvent.restored]
+  /// when peripherals are restored after a Bluetooth process relaunch).
+  /// Android never emits [BleEvent.restored].
+  ///
+  /// For status-only: `statusStream.map((e) => e.status)`.
+  ///
   /// Also see [status].
-  Stream<BleStatus> get statusStream => Repeater(onListenEmitFrom: () async* {
+  Stream<BleStatusEvent> get statusStream =>
+      Repeater(onListenEmitFrom: () async* {
         await initialize();
-        yield _status;
-        yield* _statusStream;
+        yield BleStatusEvent.status(_status);
+        yield* _blePlatform.statusStream.map((event) {
+          _status = event.status;
+          return event;
+        });
       }).stream;
 
   /// Returns the current status of the BLE subsystem of the host device.
@@ -81,7 +91,8 @@ class FlutterReactiveBle {
 
   BleStatus _status = BleStatus.unknown;
 
-  Stream<BleStatus> get _statusStream => _blePlatform.bleStatusStream;
+  Stream<BleStatus> get _statusStream =>
+      _blePlatform.statusStream.map((event) => event.status);
 
   StreamSubscription<BleStatus>? _statusSubscription;
 

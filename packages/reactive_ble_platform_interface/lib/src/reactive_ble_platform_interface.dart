@@ -32,12 +32,15 @@ abstract class ReactiveBlePlatform extends PlatformInterface {
     throw UnimplementedError('scanStream has not been implemented.');
   }
 
-  /// Stream that provides status updates regarding the host device BLE sub system.
+  /// BLE status & iOS restore notifications.
   ///
-  /// In general this stream will be listened to on app startup to determine
-  /// whether or not ble is switched on or authorized.
-  Stream<BleStatus> get bleStatusStream {
-    throw UnimplementedError('bleStatusStream has not been implemented.');
+  /// Emits [BleStatusEvent] on iOS,
+  /// [BleEvent.restored] when peripherals are restored.
+  /// Android never emits [BleEvent.restored].
+  ///
+  /// For status-only: `statusStream.map((e) => e.status)`.
+  Stream<BleStatusEvent> get statusStream {
+    throw UnimplementedError('statusStream has not been implemented.');
   }
 
   /// Stream that provides connection updates for all the connected BLE
@@ -51,11 +54,9 @@ abstract class ReactiveBlePlatform extends PlatformInterface {
 
   /// Stream of peripheral IDs restored by iOS after a Bluetooth relaunch.
   ///
-  /// Emits once per restoration event (may be buffered until listened).
+  /// Prefer [statusStream] ([BleEvent.restored]). Kept for compatibility.
   /// Android never emits.
-  Stream<List<String>> get restoredDevicesStream {
-    return const Stream.empty();
-  }
+  Stream<List<String>> get restoredDevicesStream => const Stream.empty();
 
   /// Stream that provides value updates about the characteristics that are read
   /// or subscribed to.

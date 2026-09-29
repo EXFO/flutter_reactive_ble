@@ -69,10 +69,10 @@ class MockReactiveBlePlatform extends _i1.Mock
         returnValue: _i4.Stream<_i2.ScanResult>.empty(),
       ) as _i4.Stream<_i2.ScanResult>);
   @override
-  _i4.Stream<_i2.BleStatus> get bleStatusStream => (super.noSuchMethod(
-        Invocation.getter(#bleStatusStream),
-        returnValue: _i4.Stream<_i2.BleStatus>.empty(),
-      ) as _i4.Stream<_i2.BleStatus>);
+  _i4.Stream<_i2.BleStatusEvent> get statusStream => (super.noSuchMethod(
+        Invocation.getter(#statusStream),
+        returnValue: _i4.Stream<_i2.BleStatusEvent>.empty(),
+      ) as _i4.Stream<_i2.BleStatusEvent>);
   @override
   _i4.Stream<_i2.ConnectionStateUpdate> get connectionUpdateStream =>
       (super.noSuchMethod(

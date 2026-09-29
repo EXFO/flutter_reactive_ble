@@ -48,8 +48,13 @@ void main() {
         (_) => Future.value(),
       );
 
-      when(_blePlatform.bleStatusStream).thenAnswer(
-          (realInvocation) => _bleStatusController.stream.asBroadcastStream());
+      when(_blePlatform.statusStream).thenAnswer(
+        (_) => _bleStatusController.stream
+            .map(BleStatusEvent.status)
+            .asBroadcastStream(),
+      );
+      when(_blePlatform.restoredDevicesStream)
+          .thenAnswer((_) => const Stream<List<String>>.empty());
 
       _sut = FlutterReactiveBle.withDependencies(
         reactiveBlePlatform: _blePlatform,
@@ -67,9 +72,9 @@ void main() {
     });
 
     group('BleStatus stream', () {
-      Stream<BleStatus>? bleStatusStream;
+      Stream<BleStatusEvent>? statusStream;
       setUp(() {
-        bleStatusStream = _sut.statusStream;
+        statusStream = _sut.statusStream;
       });
 
       test(
@@ -78,9 +83,9 @@ void main() {
         _bleStatusController.add(BleStatus.ready);
 
         expect(
-            bleStatusStream,
-            emitsInOrder(<BleStatus>[
-              BleStatus.ready,
+            statusStream,
+            emitsInOrder(<BleStatusEvent>[
+              const BleStatusEvent.status(BleStatus.ready),
             ]));
       });
 

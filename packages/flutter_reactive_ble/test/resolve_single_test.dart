@@ -63,7 +63,10 @@ void main() {
 
       when(blePlatform.initialize()).thenAnswer((_) async {});
       when(blePlatform.deinitialize()).thenAnswer((_) async {});
-      when(blePlatform.bleStatusStream).thenAnswer((_) => const Stream.empty());
+      when(blePlatform.statusStream)
+          .thenAnswer((_) => const Stream<BleStatusEvent>.empty());
+      when(blePlatform.restoredDevicesStream)
+          .thenAnswer((_) => const Stream<List<String>>.empty());
       when(deviceConnector.deviceConnectionStateUpdateStream)
           .thenAnswer((_) => const Stream.empty());
 

@@ -3,11 +3,11 @@ import 'package:logging/logging.dart' as logging;
 /// Routes native BLE log events into [package:logging].
 class DebugLogger {
   DebugLogger([String? source])
-      : _logger = logging.Logger(
-          (source == null || source.isEmpty)
-              ? 'FlutterReactiveBle'
-              : 'FlutterReactiveBle - $source',
-        );
+    : _logger = logging.Logger(
+        (source == null || source.isEmpty)
+            ? 'FlutterReactiveBle'
+            : 'FlutterReactiveBle - $source',
+      );
 
   final logging.Logger _logger;
 

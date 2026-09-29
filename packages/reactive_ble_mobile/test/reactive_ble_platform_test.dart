@@ -599,7 +599,7 @@ void main() {
       const status1 = BleStatus.poweredOff;
       const status2 = BleStatus.ready;
 
-      Stream<BleStatus>? _bleStatusStream;
+      Stream<BleStatusEvent>? _statusStream;
 
       setUp(() {
         _statusStreamController.addStream(
@@ -612,11 +612,17 @@ void main() {
         when(_protobufConverter.bleStatusFrom([1])).thenReturn(status1);
         when(_protobufConverter.bleStatusFrom([0])).thenReturn(status2);
 
-        _bleStatusStream = _sut.bleStatusStream;
+        _statusStream = _sut.statusStream;
       });
 
       test('It emits correct values', () {
-        expect(_bleStatusStream, emitsInOrder(<BleStatus>[status1, status2]));
+        expect(
+          _statusStream,
+          emitsInOrder(<BleStatusEvent>[
+            const BleStatusEvent.status(status1),
+            const BleStatusEvent.status(status2),
+          ]),
+        );
       });
     });
 
