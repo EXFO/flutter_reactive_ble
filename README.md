@@ -133,12 +133,31 @@ flutterReactiveBle.connectToDevice(
       connectionTimeout: const Duration(seconds: 2),
     ).listen((connectionState) {
       // Handle connection state updates
+      final failure = connectionState.failure;
+      if (failure != null) {
+        switch (failure.code) {
+          case ConnectionError.failedToConnect:
+            // Connection attempt failed
+            break;
+          case ConnectionError.timeout:
+            // Connection attempt or active connection timed out
+            break;
+          case ConnectionError.disconnectFromDevice:
+            // Device disconnected (iOS CBError 7 / Android GATT 19)
+            break;
+          case ConnectionError.unknown:
+            // Unknown connection failure
+            break;
+        }
+      }
     }, onError: (Object error) {
       // Handle a possible error
     });
 ```
 
 For the required `id` parameter use a device ID retrieved through device discovery. On iOS the device ID is a UUID and on Android it is a MAC address (which may also be randomized, depending on the Android version). Supplying a map with service and characteristic IDs you want to discover may speed up the connection on iOS (otherwise _all_ services and characteristics will be discovered). You can specify a `connectionTimeout` when the client will provide an error in case the connection cannot be established within the specified time.
+
+Connection updates may include a `failure` of type `GenericFailure<ConnectionError>`. See [ConnectionError](https://github.com/PhilipsHue/flutter_reactive_ble/blob/master/packages/reactive_ble_platform_interface/lib/src/model/connection_state_update.dart) for the meaning of each code (`unknown`, `failedToConnect`, `timeout`, `disconnectFromDevice`).
 
 There are numerous issues on the Android BLE stack that leave it hanging when you try to connect to a device that is not in range. To work around this
 issue use the method `connectToAdvertisingDevice` to first scan for the device and only if it is found connect to it.

@@ -1,3 +1,9 @@
+## 5.5.0+8
+
+* Android/iOS: map device disconnect to `ConnectionError.disconnectFromDevice` (GATT 19 / CBError 7)
+* iOS: add `ErrorParser` and align `ConnectionFailure` codes with Dart `ConnectionError`
+* iOS: avoid inventing `connectionLost` when CoreBluetooth reports a clean disconnect without error
+
 ## 5.5.0+7
 
 * Add `BleLogger` (Android/iOS) and `flutter_reactive_ble_log` EventChannel to forward critical native logs to Dart

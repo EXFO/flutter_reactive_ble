@@ -1,3 +1,7 @@
+## 5.5.0+8
+
+* Rename `ConnectionError.terminatePeerUser` to `ConnectionError.disconnectFromDevice`
+
 ## 5.5.0+7
 
 * Bump version for 5.5.0+7 release (implementation updates in `reactive_ble_mobile` and `flutter_reactive_ble`)

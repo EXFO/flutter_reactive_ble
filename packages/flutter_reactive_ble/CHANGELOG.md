@@ -1,3 +1,9 @@
+## 5.5.0+8
+
+* Rename `ConnectionError.terminatePeerUser` to `ConnectionError.disconnectFromDevice` (iOS CBError 7 / Android GATT 19)
+* Improve connection failure code mapping on disconnect (Android/iOS)
+* Document `ConnectionError` codes in the README
+
 ## 5.5.0+7
 
 * Route `DebugLogger` through `package:logging` (`FlutterReactiveBle - <Source>`) so records reach app log handlers (e.g. LogManager)
