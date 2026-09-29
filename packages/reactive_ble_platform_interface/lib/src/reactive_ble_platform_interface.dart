@@ -40,13 +40,21 @@ abstract class ReactiveBlePlatform extends PlatformInterface {
     throw UnimplementedError('bleStatusStream has not been implemented.');
   }
 
-  /// Listen to this stream to get connection updates for all the connected BLE
+  /// Stream that provides connection updates for all the connected BLE
   /// devices.
   ///
   /// It is important to subscribe to this stream before connecting to a
   /// device since it can happen that some results are missed.
   Stream<ConnectionStateUpdate> get connectionUpdateStream {
     throw UnimplementedError('connectionStream has not been implemented.');
+  }
+
+  /// Stream of peripheral IDs restored by iOS after a Bluetooth relaunch.
+  ///
+  /// Emits once per restoration event (may be buffered until listened).
+  /// Android never emits.
+  Stream<List<String>> get restoredDevicesStream {
+    return const Stream.empty();
   }
 
   /// Stream that provides value updates about the characteristics that are read

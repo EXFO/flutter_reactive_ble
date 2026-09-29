@@ -52,6 +52,11 @@ struct EventSink {
         }
     }
 
+    /// Emits a Flutter-standard value (e.g. `[String]` device IDs) without protobuf.
+    func addRaw(_ value: Any?) {
+        emitOnMain(value)
+    }
+
     func addLog(_ payload: [String: String]) {
         emitOnMain(payload)
     }

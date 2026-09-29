@@ -17,6 +17,7 @@ class ReactiveBleMobilePlatform extends ReactiveBlePlatform {
     required Stream<List<int>> bleDeviceScanChannel,
     required Stream<List<int>> bleStatusChannel,
     Stream<dynamic>? logChannel,
+    Stream<dynamic>? restoredDevicesChannel,
     Logger? logger,
   }) : _argsToProtobufConverter = argsToProtobufConverter,
        _protobufConverter = protobufConverter,
@@ -25,6 +26,7 @@ class ReactiveBleMobilePlatform extends ReactiveBlePlatform {
        _charUpdateRawStream = charUpdateChannel,
        _bleStatusRawChannel = bleStatusChannel,
        _bleDeviceScanRawStream = bleDeviceScanChannel,
+       _restoredDevicesRawStream = restoredDevicesChannel,
        _logger = logger {
     if (logChannel != null) {
       _logSubscription = logChannel.listen(
@@ -42,6 +44,7 @@ class ReactiveBleMobilePlatform extends ReactiveBlePlatform {
   final Stream<List<int>> _charUpdateRawStream;
   final Stream<List<int>> _bleDeviceScanRawStream;
   final Stream<List<int>> _bleStatusRawChannel;
+  final Stream<dynamic>? _restoredDevicesRawStream;
   final Logger? _logger;
   StreamSubscription<dynamic>? _logSubscription;
 
@@ -49,6 +52,7 @@ class ReactiveBleMobilePlatform extends ReactiveBlePlatform {
   Stream<CharacteristicValue>? _charValueStream;
   Stream<ScanResult>? _scanResultStream;
   Stream<BleStatus>? _bleStatusStream;
+  Stream<List<String>>? _restoredDevicesStream;
 
   @override
   Stream<ConnectionStateUpdate> get connectionUpdateStream =>
@@ -78,6 +82,21 @@ class ReactiveBleMobilePlatform extends ReactiveBlePlatform {
               }
             }
             return update;
+          });
+
+  @override
+  Stream<List<String>> get restoredDevicesStream =>
+      _restoredDevicesStream ??= (_restoredDevicesRawStream ?? const Stream.empty())
+          .map((event) {
+            if (event is List) {
+              return event.map((e) => e.toString()).toList(growable: false);
+            }
+            return const <String>[];
+          })
+          .where((ids) => ids.isNotEmpty)
+          .map((ids) {
+            _logger?.info('RestoredPeripherals: $ids');
+            return ids;
           });
 
   @override
@@ -350,6 +369,7 @@ class ReactiveBleMobilePlatformFactory {
     const scanEventChannel = EventChannel("flutter_reactive_ble_scan");
     const bleStatusChannel = EventChannel("flutter_reactive_ble_status");
     const logEventChannel = EventChannel("flutter_reactive_ble_log");
+    const restoredEventChannel = EventChannel("flutter_reactive_ble_restored");
 
     return ReactiveBleMobilePlatform(
       protobufConverter: const ProtobufConverterImpl(),
@@ -368,6 +388,7 @@ class ReactiveBleMobilePlatformFactory {
           .receiveBroadcastStream()
           .cast<List<int>>(),
       logChannel: logEventChannel.receiveBroadcastStream(),
+      restoredDevicesChannel: restoredEventChannel.receiveBroadcastStream(),
       logger: logger,
     );
   }

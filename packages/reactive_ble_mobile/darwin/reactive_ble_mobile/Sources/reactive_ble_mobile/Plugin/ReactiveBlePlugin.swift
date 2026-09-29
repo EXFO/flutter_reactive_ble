@@ -34,6 +34,23 @@ public class ReactiveBlePlugin: NSObject, FlutterPlugin {
             .setStreamHandler(plugin.characteristicValueUpdateStreamHandler)
         FlutterEventChannel(name: "flutter_reactive_ble_log", binaryMessenger: messenger)
             .setStreamHandler(plugin.logStreamHandler)
+        FlutterEventChannel(name: "flutter_reactive_ble_restored", binaryMessenger: messenger)
+            .setStreamHandler(plugin.restoredDevicesStreamHandler)
+    }
+
+    var restoredDevicesStreamHandler: StreamHandler<PluginController> {
+        return StreamHandler(
+            name: "restored devices stream handler",
+            context: context,
+            onListen: { context, sink in
+                context.restoredDevicesSink = sink
+                return nil
+            },
+            onCancel: { context in
+                context.restoredDevicesSink = nil
+                return nil
+            }
+        )
     }
 
     var statusStreamHandler: StreamHandler<PluginController> {

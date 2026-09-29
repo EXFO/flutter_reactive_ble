@@ -68,6 +68,15 @@ final class PluginController {
         }
     }
 
+    /// Sink for iOS state-restoration peripheral IDs (audit #10).
+    var restoredDevicesSink: EventSink? {
+        didSet {
+            flushRestoredDevices()
+        }
+    }
+
+    private var pendingRestoredDeviceIds: [String] = []
+
     var isEventSinkReady: Bool {
         eventDispatchQueue.sync { connectedDeviceSink != nil }
     }
@@ -184,6 +193,13 @@ final class PluginController {
                 if let scanServiceUuids = scanServiceUuids {
                     context.scan = StreamingTask(parameters: .init(services: scanServiceUuids))
                 }
+                let ids = peripheralIds.map(\.uuidString)
+                BleLogger.info(
+                    "PluginController",
+                    "RestoredPeripherals: count=\(ids.count) ids=\(ids.joined(separator: ","))"
+                )
+                context.pendingRestoredDeviceIds = ids
+                context.flushRestoredDevices()
             },
             onServicesWithCharacteristicsInitialDiscovery: papply(weak: self) { context, central, peripheral, errors in
                 let message = DeviceInfo.with {
@@ -847,5 +863,14 @@ final class PluginController {
         let message = BleStatusInfo.with { $0.status = encode(stateToReport) }
 
         sink.add(.success(message))
+    }
+
+    private func flushRestoredDevices() {
+        guard let sink = restoredDevicesSink, !pendingRestoredDeviceIds.isEmpty else {
+            return
+        }
+        let ids = pendingRestoredDeviceIds
+        pendingRestoredDeviceIds.removeAll(keepingCapacity: false)
+        sink.addRaw(ids)
     }
 }

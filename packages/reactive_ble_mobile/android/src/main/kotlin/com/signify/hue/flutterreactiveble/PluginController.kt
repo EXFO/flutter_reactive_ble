@@ -68,6 +68,7 @@ class PluginController {
         charNotificationChannel = EventChannel(messenger, "flutter_reactive_ble_char_update")
         val bleStatusChannel = EventChannel(messenger, "flutter_reactive_ble_status")
         val logChannel = EventChannel(messenger, "flutter_reactive_ble_log")
+        val restoredChannel = EventChannel(messenger, "flutter_reactive_ble_restored")
 
         scanDevicesHandler = ScanDevicesHandler(bleClient)
         deviceConnectionHandler = DeviceConnectionHandler(bleClient)
@@ -79,6 +80,7 @@ class PluginController {
         charNotificationChannel.setStreamHandler(charNotificationHandler)
         bleStatusChannel.setStreamHandler(bleStatusHandler)
         logChannel.setStreamHandler(LogHandler())
+        restoredChannel.setStreamHandler(RestoredDevicesHandler())
     }
 
     internal fun deinitialize() {
